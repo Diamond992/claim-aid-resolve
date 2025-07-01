@@ -7,21 +7,49 @@ import { Progress } from "@/components/ui/progress";
 import { FileText, MessageSquare, Upload, User, LogOut, Plus, Eye } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import type { User as SupabaseUser } from "@supabase/supabase-js";
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const [userEmail, setUserEmail] = useState("");
-  const [userName, setUserName] = useState("");
+  const [user, setUser] = useState<SupabaseUser | null>(null);
+  const [profile, setProfile] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const email = localStorage.getItem('userEmail');
-    const name = localStorage.getItem('userName');
-    if (!email) {
-      navigate('/login');
-      return;
-    }
-    setUserEmail(email);
-    setUserName(name || "Utilisateur");
+    const getUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        navigate('/login');
+        return;
+      }
+
+      setUser(session.user);
+
+      // Get user profile
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', session.user.id)
+        .single();
+
+      setProfile(profileData);
+      setIsLoading(false);
+    };
+
+    getUser();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT') {
+        navigate('/login');
+      } else if (session) {
+        setUser(session.user);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, [navigate]);
 
   const mockCases = [
@@ -60,13 +88,25 @@ const Dashboard = () => {
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('userRole');
-    localStorage.removeItem('userEmail');
-    localStorage.removeItem('userName');
-    toast.success("Déconnexion réussie");
-    navigate('/');
+  const handleLogout = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      toast.error("Erreur lors de la déconnexion");
+    } else {
+      toast.success("Déconnexion réussie");
+      navigate('/');
+    }
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
+        <div>Chargement...</div>
+      </div>
+    );
+  }
+
+  const displayName = profile ? `${profile.first_name} ${profile.last_name}` : user?.email || "Utilisateur";
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
@@ -80,7 +120,7 @@ const Dashboard = () => {
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
                 <User className="h-5 w-5 text-gray-400" />
-                <span className="text-gray-700">{userName}</span>
+                <span className="text-gray-700">{displayName}</span>
               </div>
               <Button variant="outline" onClick={handleLogout}>
                 <LogOut className="h-4 w-4 mr-2" />
@@ -95,7 +135,7 @@ const Dashboard = () => {
         {/* Welcome Section */}
         <div className="mb-8">
           <h2 className="text-3xl font-bold text-gray-900 mb-2">
-            Bonjour {userName.split(' ')[0]} ! 👋
+            Bonjour {profile?.first_name || 'Utilisateur'} ! 👋
           </h2>
           <p className="text-gray-600">
             Suivez l'avancement de vos dossiers de réclamation et gérez vos documents.

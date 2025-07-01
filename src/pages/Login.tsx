@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Shield, Eye, EyeOff } from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -17,30 +18,65 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  useEffect(() => {
+    // Check if user is already logged in
+    const checkUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        // Check user role to redirect appropriately
+        const { data: roleData } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', session.user.id)
+          .single();
+        
+        if (roleData?.role === 'admin') {
+          navigate('/admin');
+        } else {
+          navigate('/dashboard');
+        }
+      }
+    };
+    checkUser();
+  }, [navigate]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    // Simulate authentication
-    setTimeout(() => {
-      if (formData.email && formData.password) {
-        // Check if admin credentials
-        if (formData.email === "admin@reclamassur.com" && formData.password === "admin123") {
-          localStorage.setItem('userRole', 'admin');
-          localStorage.setItem('userEmail', formData.email);
-          toast.success("Connexion administrateur réussie !");
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: formData.email,
+        password: formData.password,
+      });
+
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+
+      if (data.user) {
+        // Check user role
+        const { data: roleData } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', data.user.id)
+          .single();
+
+        toast.success("Connexion réussie !");
+        
+        if (roleData?.role === 'admin') {
           navigate('/admin');
         } else {
-          localStorage.setItem('userRole', 'user');
-          localStorage.setItem('userEmail', formData.email);
-          toast.success("Connexion réussie !");
           navigate('/dashboard');
         }
-      } else {
-        toast.error("Veuillez remplir tous les champs");
       }
+    } catch (error) {
+      toast.error("Une erreur est survenue lors de la connexion");
+      console.error('Login error:', error);
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   return (
@@ -103,12 +139,6 @@ const Login = () => {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between">
-                <Link to="/forgot-password" className="text-sm text-blue-600 hover:underline">
-                  Mot de passe oublié ?
-                </Link>
-              </div>
-
               <Button 
                 type="submit" 
                 className="w-full bg-blue-600 hover:bg-blue-700"
@@ -125,15 +155,6 @@ const Login = () => {
                   Créer un compte
                 </Link>
               </p>
-            </div>
-
-            {/* Demo credentials */}
-            <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-              <p className="text-sm font-medium text-gray-700 mb-2">Comptes de démonstration :</p>
-              <div className="space-y-1 text-xs text-gray-600">
-                <p><strong>Utilisateur :</strong> user@demo.com / password123</p>
-                <p><strong>Admin :</strong> admin@reclamassur.com / admin123</p>
-              </div>
             </div>
           </CardContent>
         </Card>

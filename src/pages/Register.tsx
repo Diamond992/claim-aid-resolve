@@ -8,6 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Shield, Eye, EyeOff } from "lucide-react";
 import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 const Register = () => {
   const navigate = useNavigate();
@@ -25,6 +26,15 @@ const Register = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
+    // Check if user is already logged in
+    const checkUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        navigate('/dashboard');
+      }
+    };
+    checkUser();
+
     // Check if coming from claim form
     const fromClaim = searchParams.get('from') === 'claim';
     if (fromClaim) {
@@ -39,7 +49,7 @@ const Register = () => {
         }));
       }
     }
-  }, [searchParams]);
+  }, [searchParams, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,22 +67,40 @@ const Register = () => {
       return;
     }
 
-    // Simulate registration
-    setTimeout(() => {
-      localStorage.setItem('userRole', 'user');
-      localStorage.setItem('userEmail', formData.email);
-      localStorage.setItem('userName', `${formData.firstName} ${formData.lastName}`);
+    try {
+      const redirectUrl = `${window.location.origin}/`;
       
+      const { error } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          emailRedirectTo: redirectUrl,
+          data: {
+            first_name: formData.firstName,
+            last_name: formData.lastName,
+          }
+        }
+      });
+
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+
       const fromClaim = searchParams.get('from') === 'claim';
       if (fromClaim) {
-        toast.success("Compte créé avec succès ! Redirection vers le paiement...");
-        navigate('/payment-redirect');
+        toast.success("Compte créé avec succès ! Veuillez vérifier votre email puis vous connecter.");
+        navigate('/login');
       } else {
-        toast.success("Compte créé avec succès !");
-        navigate('/dashboard');
+        toast.success("Compte créé avec succès ! Veuillez vérifier votre email pour confirmer votre inscription.");
+        navigate('/login');
       }
+    } catch (error) {
+      toast.error("Une erreur est survenue lors de la création du compte");
+      console.error('Register error:', error);
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   return (
