@@ -69,6 +69,57 @@ export type Database = {
         }
         Relationships: []
       }
+      documents: {
+        Row: {
+          created_at: string
+          dossier_id: string
+          id: string
+          mime_type: string
+          nom_fichier: string
+          taille_fichier: number
+          type_document: Database["public"]["Enums"]["type_document"]
+          uploaded_by: string
+          url_stockage: string
+        }
+        Insert: {
+          created_at?: string
+          dossier_id: string
+          id?: string
+          mime_type: string
+          nom_fichier: string
+          taille_fichier: number
+          type_document: Database["public"]["Enums"]["type_document"]
+          uploaded_by: string
+          url_stockage: string
+        }
+        Update: {
+          created_at?: string
+          dossier_id?: string
+          id?: string
+          mime_type?: string
+          nom_fichier?: string
+          taille_fichier?: number
+          type_document?: Database["public"]["Enums"]["type_document"]
+          uploaded_by?: string
+          url_stockage?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documents_dossier_id_fkey"
+            columns: ["dossier_id"]
+            isOneToOne: false
+            referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documents_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dossiers: {
         Row: {
           adresse_assureur: Json | null
@@ -206,6 +257,12 @@ export type Database = {
         | "reclamation_envoyee"
         | "mediation"
         | "clos"
+      type_document:
+        | "refus_assurance"
+        | "police"
+        | "facture"
+        | "expertise"
+        | "autre"
       type_sinistre: "auto" | "habitation" | "sante" | "autre"
     }
     CompositeTypes: {
@@ -329,6 +386,13 @@ export const Constants = {
         "reclamation_envoyee",
         "mediation",
         "clos",
+      ],
+      type_document: [
+        "refus_assurance",
+        "police",
+        "facture",
+        "expertise",
+        "autre",
       ],
       type_sinistre: ["auto", "habitation", "sante", "autre"],
     },
