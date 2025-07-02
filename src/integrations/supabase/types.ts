@@ -69,6 +69,62 @@ export type Database = {
         }
         Relationships: []
       }
+      dossiers: {
+        Row: {
+          adresse_assureur: Json | null
+          client_id: string
+          compagnie_assurance: string
+          created_at: string
+          date_sinistre: string
+          id: string
+          montant_refuse: number
+          motif_refus: string | null
+          police_number: string
+          refus_date: string
+          statut: Database["public"]["Enums"]["statut_dossier"]
+          type_sinistre: Database["public"]["Enums"]["type_sinistre"]
+          updated_at: string
+        }
+        Insert: {
+          adresse_assureur?: Json | null
+          client_id: string
+          compagnie_assurance: string
+          created_at?: string
+          date_sinistre: string
+          id?: string
+          montant_refuse: number
+          motif_refus?: string | null
+          police_number: string
+          refus_date: string
+          statut?: Database["public"]["Enums"]["statut_dossier"]
+          type_sinistre: Database["public"]["Enums"]["type_sinistre"]
+          updated_at?: string
+        }
+        Update: {
+          adresse_assureur?: Json | null
+          client_id?: string
+          compagnie_assurance?: string
+          created_at?: string
+          date_sinistre?: string
+          id?: string
+          montant_refuse?: number
+          motif_refus?: string | null
+          police_number?: string
+          refus_date?: string
+          statut?: Database["public"]["Enums"]["statut_dossier"]
+          type_sinistre?: Database["public"]["Enums"]["type_sinistre"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dossiers_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string | null
@@ -144,6 +200,13 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "user"
+      statut_dossier:
+        | "nouveau"
+        | "en_cours"
+        | "reclamation_envoyee"
+        | "mediation"
+        | "clos"
+      type_sinistre: "auto" | "habitation" | "sante" | "autre"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -260,6 +323,14 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "user"],
+      statut_dossier: [
+        "nouveau",
+        "en_cours",
+        "reclamation_envoyee",
+        "mediation",
+        "clos",
+      ],
+      type_sinistre: ["auto", "habitation", "sante", "autre"],
     },
   },
 } as const
