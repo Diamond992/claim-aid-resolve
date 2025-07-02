@@ -26,6 +26,7 @@ const App = () => (
           <Route path="/claim-form" element={<ClaimForm />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/admin/register" element={<AdminRegister />} />
           <Route path="/payment-redirect" element={<PaymentRedirect />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/admin" element={<AdminDashboard />} />
