@@ -37,7 +37,9 @@ const AdminDashboard = () => {
         .from('profiles')
         .select(`
           *,
-          user_roles (role)
+          user_roles!inner (
+            role
+          )
         `)
         .eq('id', session.user.id)
         .single();
