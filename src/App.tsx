@@ -8,6 +8,7 @@ import Index from "./pages/Index";
 import ClaimForm from "./pages/ClaimForm";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import AdminRegister from "./pages/AdminRegister";
 import PaymentRedirect from "./pages/PaymentRedirect";
 import Dashboard from "./pages/Dashboard";
 import AdminDashboard from "./pages/AdminDashboard";

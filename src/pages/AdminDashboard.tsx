@@ -42,7 +42,7 @@ const AdminDashboard = () => {
         .eq('id', session.user.id)
         .single();
 
-      if (!profileData || profileData.user_roles?.[0]?.role !== 'admin') {
+      if (!profileData || !profileData.user_roles || profileData.user_roles.length === 0 || profileData.user_roles[0].role !== 'admin') {
         toast.error("Accès refusé. Compte administrateur requis.");
         navigate('/dashboard');
         return;
