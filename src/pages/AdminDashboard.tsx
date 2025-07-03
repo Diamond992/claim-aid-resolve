@@ -13,22 +13,10 @@ import type { User as SupabaseUser } from "@supabase/supabase-js";
 import UserManagement from "@/components/admin/UserManagement";
 import AuditLog from "@/components/admin/AuditLog";
 
-// Définir les types pour le profil et les rôles
-interface UserRole {
-  role: string;
-}
-
-interface Profile {
-  id: string;
-  first_name?: string;
-  last_name?: string;
-  user_roles: UserRole[];
-}
-
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState<SupabaseUser | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
+  const [profile, setProfile] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [isLoading, setIsLoading] = useState(true);
@@ -44,25 +32,29 @@ const AdminDashboard = () => {
 
       setUser(session.user);
 
-      // Get user profile and check if admin
+      // Get user profile
       const { data: profileData } = await supabase
         .from('profiles')
-        .select(`
-          *,
-          user_roles!inner (
-            role
-          )
-        `)
+        .select('*')
         .eq('id', session.user.id)
         .single();
 
-      if (!profileData || !profileData.user_roles || profileData.user_roles.length === 0 || profileData.user_roles[0].role !== 'admin') {
+      // Get user roles separately
+      const { data: userRoles } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', session.user.id);
+
+      // Check if user has admin role
+      const hasAdminRole = userRoles?.some(roleRecord => roleRecord.role === 'admin');
+
+      if (!hasAdminRole) {
         toast.error("Accès refusé. Compte administrateur requis.");
         navigate('/dashboard');
         return;
       }
 
-      setProfile(profileData as Profile);
+      setProfile({ ...profileData, user_roles: userRoles });
       setIsLoading(false);
     };
 
