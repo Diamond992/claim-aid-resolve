@@ -245,6 +245,53 @@ export type Database = {
           },
         ]
       }
+      echeances: {
+        Row: {
+          created_at: string
+          date_alerte: string | null
+          date_limite: string
+          description: string | null
+          dossier_id: string
+          id: string
+          notifie: boolean
+          statut: Database["public"]["Enums"]["statut_echeance"]
+          type_echeance: Database["public"]["Enums"]["type_echeance"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          date_alerte?: string | null
+          date_limite: string
+          description?: string | null
+          dossier_id: string
+          id?: string
+          notifie?: boolean
+          statut?: Database["public"]["Enums"]["statut_echeance"]
+          type_echeance: Database["public"]["Enums"]["type_echeance"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          date_alerte?: string | null
+          date_limite?: string
+          description?: string | null
+          dossier_id?: string
+          id?: string
+          notifie?: boolean
+          statut?: Database["public"]["Enums"]["statut_echeance"]
+          type_echeance?: Database["public"]["Enums"]["type_echeance"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "echeances_dossier_id_fkey"
+            columns: ["dossier_id"]
+            isOneToOne: false
+            referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string | null
@@ -332,6 +379,7 @@ export type Database = {
         | "reclamation_envoyee"
         | "mediation"
         | "clos"
+      statut_echeance: "actif" | "traite" | "expire"
       type_courrier: "reclamation_interne" | "mediation" | "mise_en_demeure"
       type_document:
         | "refus_assurance"
@@ -339,6 +387,10 @@ export type Database = {
         | "facture"
         | "expertise"
         | "autre"
+      type_echeance:
+        | "reponse_reclamation"
+        | "delai_mediation"
+        | "prescription_biennale"
       type_sinistre: "auto" | "habitation" | "sante" | "autre"
     }
     CompositeTypes: {
@@ -470,6 +522,7 @@ export const Constants = {
         "mediation",
         "clos",
       ],
+      statut_echeance: ["actif", "traite", "expire"],
       type_courrier: ["reclamation_interne", "mediation", "mise_en_demeure"],
       type_document: [
         "refus_assurance",
@@ -477,6 +530,11 @@ export const Constants = {
         "facture",
         "expertise",
         "autre",
+      ],
+      type_echeance: [
+        "reponse_reclamation",
+        "delai_mediation",
+        "prescription_biennale",
       ],
       type_sinistre: ["auto", "habitation", "sante", "autre"],
     },

@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Bot, Users, Activity, Settings, FileText } from "lucide-react";
+import { Bot, Users, Activity, Settings, FileText, Calendar } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -15,6 +15,8 @@ import AdminFilters from "@/components/admin/AdminFilters";
 import CourriersList from "@/components/admin/CourriersList";
 import LegacyStatsCards from "@/components/admin/LegacyStatsCards";
 import LegacyCourriersList from "@/components/admin/LegacyCourriersList";
+import EcheancesList from "@/components/admin/EcheancesList";
+import CreateEcheanceDialog from "@/components/admin/CreateEcheanceDialog";
 
 interface CourierData {
   id: string;
@@ -43,11 +45,41 @@ interface CourierData {
   };
 }
 
+interface EcheanceData {
+  id: string;
+  dossier_id: string;
+  type_echeance: 'reponse_reclamation' | 'delai_mediation' | 'prescription_biennale';
+  date_limite: string;
+  date_alerte: string;
+  statut: 'actif' | 'traite' | 'expire';
+  description?: string;
+  notifie: boolean;
+  created_at: string;
+  dossier?: {
+    compagnie_assurance: string;
+    profiles: {
+      first_name: string;
+      last_name: string;
+    };
+  };
+}
+
+interface DossierData {
+  id: string;
+  compagnie_assurance: string;
+  profiles: {
+    first_name: string;
+    last_name: string;
+  };
+}
+
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState<SupabaseUser | null>(null);
   const [profile, setProfile] = useState<any>(null);
   const [courriers, setCourriers] = useState<CourierData[]>([]);
+  const [echeances, setEcheances] = useState<EcheanceData[]>([]);
+  const [dossiers, setDossiers] = useState<DossierData[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [isLoading, setIsLoading] = useState(true);
@@ -87,8 +119,8 @@ const AdminDashboard = () => {
 
       setProfile({ ...profileData, user_roles: userRoles });
       
-      // Load courriers data
-      await loadCourriers();
+      // Load data
+      await Promise.all([loadCourriers(), loadEcheances(), loadDossiers()]);
       setIsLoading(false);
     };
 
@@ -133,6 +165,59 @@ const AdminDashboard = () => {
       setCourriers(data || []);
     } catch (error) {
       console.error('Error loading courriers:', error);
+    }
+  };
+
+  const loadEcheances = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('echeances')
+        .select(`
+          *,
+          dossier:dossiers (
+            compagnie_assurance,
+            profiles:client_id (
+              first_name,
+              last_name
+            )
+          )
+        `)
+        .order('date_limite', { ascending: true });
+
+      if (error) {
+        console.error('Error loading echeances:', error);
+        toast.error("Erreur lors du chargement des échéances");
+        return;
+      }
+
+      setEcheances(data || []);
+    } catch (error) {
+      console.error('Error loading echeances:', error);
+    }
+  };
+
+  const loadDossiers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('dossiers')
+        .select(`
+          id,
+          compagnie_assurance,
+          profiles:client_id (
+            first_name,
+            last_name
+          )
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error loading dossiers:', error);
+        return;
+      }
+
+      setDossiers(data || []);
+    } catch (error) {
+      console.error('Error loading dossiers:', error);
     }
   };
 
@@ -192,6 +277,48 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleUpdateEcheanceStatus = async (echeanceId: string, status: 'actif' | 'traite' | 'expire') => {
+    try {
+      const { error } = await supabase
+        .from('echeances')
+        .update({ statut: status })
+        .eq('id', echeanceId);
+
+      if (error) {
+        toast.error("Erreur lors de la mise à jour du statut");
+        return;
+      }
+
+      toast.success("Statut de l'échéance mis à jour");
+      await loadEcheances();
+    } catch (error) {
+      toast.error("Erreur lors de la mise à jour");
+    }
+  };
+
+  const handleCreateEcheance = async (echeanceData: {
+    dossier_id: string;
+    type_echeance: 'reponse_reclamation' | 'delai_mediation' | 'prescription_biennale';
+    date_limite: string;
+    description?: string;
+  }) => {
+    try {
+      const { error } = await supabase
+        .from('echeances')
+        .insert([echeanceData]);
+
+      if (error) {
+        toast.error("Erreur lors de la création de l'échéance");
+        return;
+      }
+
+      toast.success("Échéance créée avec succès");
+      await loadEcheances();
+    } catch (error) {
+      toast.error("Erreur lors de la création");
+    }
+  };
+
   const filteredCourriers = courriers.filter(courrier => {
     const clientName = `${courrier.dossier?.profiles?.first_name || ''} ${courrier.dossier?.profiles?.last_name || ''}`.toLowerCase();
     const matchesSearch = clientName.includes(searchTerm.toLowerCase()) ||
@@ -223,10 +350,14 @@ const AdminDashboard = () => {
 
       <div className="max-w-7xl mx-auto px-4 py-8">
         <Tabs defaultValue="courriers" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="courriers">
               <Bot className="h-4 w-4 mr-2" />
               Courriers IA
+            </TabsTrigger>
+            <TabsTrigger value="echeances">
+              <Calendar className="h-4 w-4 mr-2" />
+              Échéances
             </TabsTrigger>
             <TabsTrigger value="users">
               <Users className="h-4 w-4 mr-2" />
@@ -258,6 +389,19 @@ const AdminDashboard = () => {
               courriers={filteredCourriers}
               onValidate={handleValidateLetter}
               onReject={handleRejectLetter}
+            />
+          </TabsContent>
+
+          <TabsContent value="echeances">
+            <div className="flex justify-end mb-6">
+              <CreateEcheanceDialog
+                dossiers={dossiers}
+                onCreateEcheance={handleCreateEcheance}
+              />
+            </div>
+            <EcheancesList
+              echeances={echeances}
+              onUpdateStatus={handleUpdateEcheanceStatus}
             />
           </TabsContent>
 
