@@ -1,17 +1,20 @@
+
 import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, MessageSquare, User, LogOut, Search, Filter, Eye, CheckCircle, XCircle, Clock, Settings, Users, Activity, Bot, Mail } from "lucide-react";
+import { Bot, Users, Activity, Settings, FileText } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 import UserManagement from "@/components/admin/UserManagement";
 import AuditLog from "@/components/admin/AuditLog";
+import AdminHeader from "@/components/admin/AdminHeader";
+import AdminStatsCards from "@/components/admin/AdminStatsCards";
+import AdminFilters from "@/components/admin/AdminFilters";
+import CourriersList from "@/components/admin/CourriersList";
+import LegacyStatsCards from "@/components/admin/LegacyStatsCards";
+import LegacyCourriersList from "@/components/admin/LegacyCourriersList";
 
 interface CourierData {
   id: string;
@@ -143,37 +146,6 @@ const AdminDashboard = () => {
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "en_attente_validation": return "bg-orange-500";
-      case "valide_pret_envoi": return "bg-blue-500";
-      case "modifie_pret_envoi": return "bg-purple-500";
-      case "envoye": return "bg-green-500";
-      case "rejete": return "bg-red-500";
-      default: return "bg-gray-500";
-    }
-  };
-
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case "en_attente_validation": return "En attente de validation";
-      case "valide_pret_envoi": return "Validé - Prêt à envoyer";
-      case "modifie_pret_envoi": return "Modifié - Prêt à envoyer";
-      case "envoye": return "Envoyé";
-      case "rejete": return "Rejeté";
-      default: return status;
-    }
-  };
-
-  const getTypeCourrierLabel = (type: string) => {
-    switch (type) {
-      case "reclamation_interne": return "Réclamation interne";
-      case "mediation": return "Médiation";
-      case "mise_en_demeure": return "Mise en demeure";
-      default: return type;
-    }
-  };
-
   const handleValidateLetter = async (courrierId: string) => {
     try {
       const { error } = await supabase
@@ -247,27 +219,7 @@ const AdminDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center space-x-4">
-              <h1 className="text-2xl font-bold text-gray-900">Administration</h1>
-              <Badge className="bg-red-600 text-white">Admin</Badge>
-            </div>
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <User className="h-5 w-5 text-gray-400" />
-                <span className="text-gray-700">{displayName}</span>
-              </div>
-              <Button variant="outline" onClick={handleLogout}>
-                <LogOut className="h-4 w-4 mr-2" />
-                Déconnexion
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
+      <AdminHeader displayName={displayName} onLogout={handleLogout} />
 
       <div className="max-w-7xl mx-auto px-4 py-8">
         <Tabs defaultValue="courriers" className="space-y-6">
@@ -295,183 +247,18 @@ const AdminDashboard = () => {
           </TabsList>
 
           <TabsContent value="courriers">
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-              <Card>
-                <CardContent className="p-6 text-center">
-                  <Bot className="h-12 w-12 text-blue-600 mx-auto mb-2" />
-                  <div className="text-2xl font-bold text-gray-900">{stats.total}</div>
-                  <div className="text-gray-600">Total Courriers</div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="p-6 text-center">
-                  <Clock className="h-12 w-12 text-orange-600 mx-auto mb-2" />
-                  <div className="text-2xl font-bold text-gray-900">{stats.pending}</div>
-                  <div className="text-gray-600">En Attente</div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="p-6 text-center">
-                  <CheckCircle className="h-12 w-12 text-blue-600 mx-auto mb-2" />
-                  <div className="text-2xl font-bold text-gray-900">{stats.validated}</div>
-                  <div className="text-gray-600">Validés</div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="p-6 text-center">
-                  <Mail className="h-12 w-12 text-emerald-600 mx-auto mb-2" />
-                  <div className="text-2xl font-bold text-gray-900">{stats.sent}</div>
-                  <div className="text-gray-600">Envoyés</div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Filters */}
-            <Card className="mb-6">
-              <CardContent className="p-4">
-                <div className="flex flex-col md:flex-row gap-4">
-                  <div className="flex-1">
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                      <Input
-                        placeholder="Rechercher par nom de client ou compagnie..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-10"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Filter className="h-4 w-4 text-gray-400" />
-                    <Select value={statusFilter} onValueChange={setStatusFilter}>
-                      <SelectTrigger className="w-48">
-                        <SelectValue placeholder="Filtrer par statut" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Tous les statuts</SelectItem>
-                        <SelectItem value="en_attente_validation">En attente validation</SelectItem>
-                        <SelectItem value="valide_pret_envoi">Validé - Prêt</SelectItem>
-                        <SelectItem value="modifie_pret_envoi">Modifié - Prêt</SelectItem>
-                        <SelectItem value="envoye">Envoyé</SelectItem>
-                        <SelectItem value="rejete">Rejeté</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Courriers List */}
-            <div className="space-y-4">
-              <h3 className="text-xl font-bold text-gray-900">Courriers IA ({filteredCourriers.length})</h3>
-              
-              {filteredCourriers.map((courrier) => (
-                <Card key={courrier.id} className="hover:shadow-lg transition-shadow">
-                  <CardHeader>
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-3 mb-2">
-                          <CardTitle className="text-lg">
-                            <Bot className="inline h-5 w-5 mr-2" />
-                            {getTypeCourrierLabel(courrier.type_courrier)}
-                          </CardTitle>
-                          <Badge className={`${getStatusColor(courrier.statut)} text-white`}>
-                            {getStatusLabel(courrier.statut)}
-                          </Badge>
-                        </div>
-                        <CardDescription>
-                          <strong>Client:</strong> {courrier.dossier?.profiles?.first_name} {courrier.dossier?.profiles?.last_name} ({courrier.dossier?.profiles?.email}) • 
-                          <strong> Compagnie:</strong> {courrier.dossier?.compagnie_assurance} • 
-                          <strong> Type:</strong> {courrier.dossier?.type_sinistre} • 
-                          <strong> Créé:</strong> {new Date(courrier.date_creation).toLocaleDateString('fr-FR')}
-                        </CardDescription>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="bg-gray-50 p-4 rounded-lg">
-                      <h4 className="font-semibold mb-2">Contenu généré par IA:</h4>
-                      <p className="text-sm text-gray-600 line-clamp-3">{courrier.contenu_genere}</p>
-                    </div>
-                    
-                    {courrier.contenu_final && (
-                      <div className="bg-blue-50 p-4 rounded-lg">
-                        <h4 className="font-semibold mb-2">Contenu final:</h4>
-                        <p className="text-sm text-gray-600 line-clamp-3">{courrier.contenu_final}</p>
-                      </div>
-                    )}
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                      <div>
-                        <span className="text-gray-500">Montant réclamé:</span>
-                        <div className="font-semibold text-emerald-600">{courrier.dossier?.montant_refuse}€</div>
-                      </div>
-                      {courrier.numero_suivi && (
-                        <div>
-                          <span className="text-gray-500">N° de suivi:</span>
-                          <div className="font-semibold">{courrier.numero_suivi}</div>
-                        </div>
-                      )}
-                      {courrier.cout_envoi && (
-                        <div>
-                          <span className="text-gray-500">Coût d'envoi:</span>
-                          <div className="font-semibold">{courrier.cout_envoi}€</div>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="flex flex-wrap gap-2 pt-2">
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => navigate(`/admin/courrier/${courrier.id}`)}
-                      >
-                        <Eye className="h-4 w-4 mr-2" />
-                        Voir Détails
-                      </Button>
-                      
-                      {courrier.statut === "en_attente_validation" && (
-                        <>
-                          <Button 
-                            size="sm"
-                            className="bg-emerald-600 hover:bg-emerald-700"
-                            onClick={() => handleValidateLetter(courrier.id)}
-                          >
-                            <CheckCircle className="h-4 w-4 mr-2" />
-                            Valider
-                          </Button>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            className="border-red-300 text-red-600 hover:bg-red-50"
-                            onClick={() => handleRejectLetter(courrier.id)}
-                          >
-                            <XCircle className="h-4 w-4 mr-2" />
-                            Rejeter
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-
-              {filteredCourriers.length === 0 && (
-                <Card className="text-center py-12">
-                  <CardContent>
-                    <Bot className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                    <h3 className="text-xl font-semibold text-gray-900 mb-2">Aucun courrier trouvé</h3>
-                    <p className="text-gray-600">
-                      Aucun courrier IA ne correspond à vos critères de recherche.
-                    </p>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
+            <AdminStatsCards stats={stats} />
+            <AdminFilters
+              searchTerm={searchTerm}
+              statusFilter={statusFilter}
+              onSearchChange={setSearchTerm}
+              onStatusChange={setStatusFilter}
+            />
+            <CourriersList
+              courriers={filteredCourriers}
+              onValidate={handleValidateLetter}
+              onReject={handleRejectLetter}
+            />
           </TabsContent>
 
           <TabsContent value="users">
@@ -498,178 +285,18 @@ const AdminDashboard = () => {
             </Card>
           </TabsContent>
 
-          {/* Legacy Dashboard Tab */}
           <TabsContent value="legacy">
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-              <Card>
-                <CardContent className="p-6 text-center">
-                  <FileText className="h-12 w-12 text-blue-600 mx-auto mb-2" />
-                  <div className="text-2xl font-bold text-gray-900">{stats.total}</div>
-                  <div className="text-gray-600">Total Dossiers</div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="p-6 text-center">
-                  <Clock className="h-12 w-12 text-orange-600 mx-auto mb-2" />
-                  <div className="text-2xl font-bold text-gray-900">{stats.pending}</div>
-                  <div className="text-gray-600">En Attente</div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="p-6 text-center">
-                  <XCircle className="h-12 w-12 text-blue-600 mx-auto mb-2" />
-                  <div className="text-2xl font-bold text-gray-900">{stats.inProgress}</div>
-                  <div className="text-gray-600">En Cours</div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="p-6 text-center">
-                  <CheckCircle className="h-12 w-12 text-emerald-600 mx-auto mb-2" />
-                  <div className="text-2xl font-bold text-gray-900">{stats.completed}</div>
-                  <div className="text-gray-600">Complétés</div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Filters */}
-            <Card className="mb-6">
-              <CardContent className="p-4">
-                <div className="flex flex-col md:flex-row gap-4">
-                  <div className="flex-1">
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                      <Input
-                        placeholder="Rechercher par nom de client ou titre..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-10"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Filter className="h-4 w-4 text-gray-400" />
-                    <Select value={statusFilter} onValueChange={setStatusFilter}>
-                      <SelectTrigger className="w-48">
-                        <SelectValue placeholder="Filtrer par statut" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Tous les statuts</SelectItem>
-                        <SelectItem value="en_attente_validation">En attente validation</SelectItem>
-                        <SelectItem value="en_cours_analyse">En cours d'analyse</SelectItem>
-                        <SelectItem value="courrier_envoye">Courrier envoyé</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Cases List */}
-            <div className="space-y-4">
-              <h3 className="text-xl font-bold text-gray-900">Dossiers Clients ({filteredCourriers.length})</h3>
-              
-              {filteredCourriers.map((courrier) => (
-                <Card key={courrier.id} className="hover:shadow-lg transition-shadow">
-                  <CardHeader>
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-3 mb-2">
-                          <CardTitle className="text-lg">#{courrier.id} - {courrier.dossier?.compagnie_assurance}</CardTitle>
-                          <Badge className={`${getStatusColor(courrier.statut)} text-white`}>
-                            {getStatusLabel(courrier.statut)}
-                          </Badge>
-                          {/*<Badge className={getPriorityColor(case_.priority)}>
-                            {case_.priority === 'high' ? 'Urgent' : case_.priority === 'medium' ? 'Moyen' : 'Faible'}
-                          </Badge>*/}
-                        </div>
-                        <CardDescription>
-                          <strong>Client:</strong> {courrier.dossier?.profiles?.first_name} {courrier.dossier?.profiles?.last_name} ({courrier.dossier?.profiles?.email}) • 
-                          <strong> Type:</strong> {courrier.dossier?.type_sinistre} • 
-                          <strong> Créé:</strong> {new Date(courrier.date_creation).toLocaleDateString('fr-FR')}
-                        </CardDescription>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <p className="text-gray-600">{courrier.contenu_genere}</p>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                      <div>
-                        <span className="text-gray-500">Montant réclamé:</span>
-                        <div className="font-semibold text-emerald-600">{courrier.dossier?.montant_refuse}€</div>
-                      </div>
-                      <div>
-                        <span className="text-gray-500">Documents:</span>
-                        <div className="font-semibold">5 fichiers</div>
-                      </div>
-                      <div>
-                        <span className="text-gray-500">Courrier IA:</span>
-                        <div className={`font-semibold text-emerald-600`}>
-                          Généré
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-wrap gap-2 pt-2">
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => navigate(`/admin/case/${courrier.id}`)}
-                      >
-                        <Eye className="h-4 w-4 mr-2" />
-                        Voir Détails
-                      </Button>
-                      
-                      {courrier.statut === "en_attente_validation" && (
-                        <>
-                          <Button 
-                            size="sm"
-                            className="bg-emerald-600 hover:bg-emerald-700"
-                            onClick={() => handleValidateLetter(courrier.id)}
-                          >
-                            <CheckCircle className="h-4 w-4 mr-2" />
-                            Valider Courrier
-                          </Button>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => navigate(`/admin/case/${courrier.id}/messages`)}
-                          >
-                            <XCircle className="h-4 w-4 mr-2" />
-                            Demander Modification
-                          </Button>
-                        </>
-                      )}
-                      
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => navigate(`/admin/case/${courrier.id}/messages`)}
-                      >
-                        <MessageSquare className="h-4 w-4 mr-2" />
-                        Messages
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-
-              {filteredCourriers.length === 0 && (
-                <Card className="text-center py-12">
-                  <CardContent>
-                    <FileText className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                    <h3 className="text-xl font-semibold text-gray-900 mb-2">Aucun dossier trouvé</h3>
-                    <p className="text-gray-600">
-                      Aucun dossier ne correspond à vos critères de recherche.
-                    </p>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
+            <LegacyStatsCards stats={stats} />
+            <AdminFilters
+              searchTerm={searchTerm}
+              statusFilter={statusFilter}
+              onSearchChange={setSearchTerm}
+              onStatusChange={setStatusFilter}
+            />
+            <LegacyCourriersList
+              courriers={filteredCourriers}
+              onValidate={handleValidateLetter}
+            />
           </TabsContent>
         </Tabs>
       </div>
