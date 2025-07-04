@@ -69,6 +69,75 @@ export type Database = {
         }
         Relationships: []
       }
+      courriers_projets: {
+        Row: {
+          admin_validateur: string | null
+          contenu_final: string | null
+          contenu_genere: string
+          cout_envoi: number | null
+          created_at: string
+          date_creation: string
+          date_envoi: string | null
+          date_validation: string | null
+          dossier_id: string
+          id: string
+          numero_suivi: string | null
+          reference_laposte: string | null
+          statut: Database["public"]["Enums"]["statut_courrier"]
+          type_courrier: Database["public"]["Enums"]["type_courrier"]
+          updated_at: string
+        }
+        Insert: {
+          admin_validateur?: string | null
+          contenu_final?: string | null
+          contenu_genere: string
+          cout_envoi?: number | null
+          created_at?: string
+          date_creation?: string
+          date_envoi?: string | null
+          date_validation?: string | null
+          dossier_id: string
+          id?: string
+          numero_suivi?: string | null
+          reference_laposte?: string | null
+          statut?: Database["public"]["Enums"]["statut_courrier"]
+          type_courrier: Database["public"]["Enums"]["type_courrier"]
+          updated_at?: string
+        }
+        Update: {
+          admin_validateur?: string | null
+          contenu_final?: string | null
+          contenu_genere?: string
+          cout_envoi?: number | null
+          created_at?: string
+          date_creation?: string
+          date_envoi?: string | null
+          date_validation?: string | null
+          dossier_id?: string
+          id?: string
+          numero_suivi?: string | null
+          reference_laposte?: string | null
+          statut?: Database["public"]["Enums"]["statut_courrier"]
+          type_courrier?: Database["public"]["Enums"]["type_courrier"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "courriers_projets_admin_validateur_fkey"
+            columns: ["admin_validateur"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "courriers_projets_dossier_id_fkey"
+            columns: ["dossier_id"]
+            isOneToOne: false
+            referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       documents: {
         Row: {
           created_at: string
@@ -251,12 +320,19 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "user"
+      statut_courrier:
+        | "en_attente_validation"
+        | "valide_pret_envoi"
+        | "modifie_pret_envoi"
+        | "envoye"
+        | "rejete"
       statut_dossier:
         | "nouveau"
         | "en_cours"
         | "reclamation_envoyee"
         | "mediation"
         | "clos"
+      type_courrier: "reclamation_interne" | "mediation" | "mise_en_demeure"
       type_document:
         | "refus_assurance"
         | "police"
@@ -380,6 +456,13 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "user"],
+      statut_courrier: [
+        "en_attente_validation",
+        "valide_pret_envoi",
+        "modifie_pret_envoi",
+        "envoye",
+        "rejete",
+      ],
       statut_dossier: [
         "nouveau",
         "en_cours",
@@ -387,6 +470,7 @@ export const Constants = {
         "mediation",
         "clos",
       ],
+      type_courrier: ["reclamation_interne", "mediation", "mise_en_demeure"],
       type_document: [
         "refus_assurance",
         "police",
