@@ -8,15 +8,15 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus } from "lucide-react";
 
 interface CreateEcheanceDialogProps {
+  isOpen: boolean;
+  onClose: () => void;
   dossiers: Array<{
     id: string;
     compagnie_assurance: string;
@@ -33,8 +33,7 @@ interface CreateEcheanceDialogProps {
   }) => void;
 }
 
-const CreateEcheanceDialog = ({ dossiers, onCreateEcheance }: CreateEcheanceDialogProps) => {
-  const [open, setOpen] = useState(false);
+const CreateEcheanceDialog = ({ isOpen, onClose, dossiers, onCreateEcheance }: CreateEcheanceDialogProps) => {
   const [formData, setFormData] = useState({
     dossier_id: '',
     type_echeance: '' as 'reponse_reclamation' | 'delai_mediation' | 'prescription_biennale' | '',
@@ -57,18 +56,12 @@ const CreateEcheanceDialog = ({ dossiers, onCreateEcheance }: CreateEcheanceDial
         date_limite: '',
         description: ''
       });
-      setOpen(false);
+      onClose();
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button className="flex items-center gap-2">
-          <Plus className="h-4 w-4" />
-          Nouvelle Échéance
-        </Button>
-      </DialogTrigger>
+    <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-md">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
@@ -139,7 +132,7 @@ const CreateEcheanceDialog = ({ dossiers, onCreateEcheance }: CreateEcheanceDial
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+            <Button type="button" variant="outline" onClick={onClose}>
               Annuler
             </Button>
             <Button type="submit">
