@@ -64,7 +64,7 @@ const AdminDashboard = () => {
         
         <div className="mt-8">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-7">
+            <TabsList className="grid w-full grid-cols-8">
               <TabsTrigger value="courriers">Courriers</TabsTrigger>
               <TabsTrigger value="echeances">Échéances</TabsTrigger>
               <TabsTrigger value="payments">Paiements</TabsTrigger>
@@ -72,6 +72,7 @@ const AdminDashboard = () => {
               <TabsTrigger value="configuration">Config</TabsTrigger>
               <TabsTrigger value="users">Utilisateurs</TabsTrigger>
               <TabsTrigger value="audit">Audit</TabsTrigger>
+              <TabsTrigger value="activity">Activité</TabsTrigger>
             </TabsList>
             
             <AdminTabsContent

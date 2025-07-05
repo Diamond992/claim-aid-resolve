@@ -7,6 +7,7 @@ import TemplatesList from "./TemplatesList";
 import UserManagement from "./UserManagement";
 import AuditLog from "./AuditLog";
 import ConfigurationList from "./ConfigurationList";
+import ActivityLogsList from "./ActivityLogsList";
 import { useTemplates } from "@/hooks/useTemplates";
 
 interface AdminTabsContentProps {
@@ -90,6 +91,10 @@ const AdminTabsContent = ({
 
       <TabsContent value="audit" className="mt-6">
         <AuditLog />
+      </TabsContent>
+
+      <TabsContent value="activity" className="mt-6">
+        <ActivityLogsList />
       </TabsContent>
     </>
   );
