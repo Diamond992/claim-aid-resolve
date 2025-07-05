@@ -1,221 +1,21 @@
 
 import { useState } from "react";
-import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { toast } from "sonner";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import AdminHeader from "@/components/admin/AdminHeader";
 import AdminStatsCards from "@/components/admin/AdminStatsCards";
-import CourriersList from "@/components/admin/CourriersList";
-import EcheancesList from "@/components/admin/EcheancesList";
-import PaymentsList from "@/components/admin/PaymentsList";
-import CreateEcheanceDialog from "@/components/admin/CreateEcheanceDialog";
-import UserManagement from "@/components/admin/UserManagement";
-import AuditLog from "@/components/admin/AuditLog";
+import AdminTabsContent from "@/components/admin/AdminTabsContent";
+import { useAdminData } from "@/hooks/useAdminData";
+import { useAdminMutations } from "@/hooks/useAdminMutations";
 
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState("courriers");
-  const queryClient = useQueryClient();
-
-  // Fetch courriers data
-  const { data: courriers = [], isLoading: courriersLoading } = useQuery({
-    queryKey: ['admin-courriers'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('courriers_projets')
-        .select(`
-          *,
-          dossier:dossiers (
-            client_id,
-            compagnie_assurance,
-            type_sinistre,
-            montant_refuse,
-            profiles (
-              first_name,
-              last_name,
-              email
-            )
-          )
-        `)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  // Fetch echeances data
-  const { data: echeances = [], isLoading: echeancesLoading } = useQuery({
-    queryKey: ['admin-echeances'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('echeances')
-        .select(`
-          *,
-          dossier:dossiers (
-            compagnie_assurance,
-            profiles (
-              first_name,
-              last_name
-            )
-          )
-        `)
-        .order('date_limite', { ascending: true });
-
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  // Fetch payments data
-  const { data: payments = [], isLoading: paymentsLoading } = useQuery({
-    queryKey: ['admin-payments'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('paiements')
-        .select(`
-          *,
-          profiles (
-            first_name,
-            last_name,
-            email
-          ),
-          dossier:dossiers (
-            compagnie_assurance
-          )
-        `)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  // Fetch dossiers for echeances creation
-  const { data: dossiers = [] } = useQuery({
-    queryKey: ['admin-dossiers'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('dossiers')
-        .select(`
-          id,
-          compagnie_assurance,
-          profiles (
-            first_name,
-            last_name
-          )
-        `)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  // Update courrier status mutation
-  const updateCourrierMutation = useMutation({
-    mutationFn: async ({ id, statut, admin_validateur }: { 
-      id: string; 
-      statut: string; 
-      admin_validateur?: string;
-    }) => {
-      const updateData: any = { 
-        statut,
-        updated_at: new Date().toISOString()
-      };
-      
-      if (statut === 'valide_pret_envoi' || statut === 'modifie_pret_envoi') {
-        updateData.admin_validateur = admin_validateur;
-        updateData.date_validation = new Date().toISOString();
-      }
-
-      const { error } = await supabase
-        .from('courriers_projets')
-        .update(updateData)
-        .eq('id', id);
-
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-courriers'] });
-      toast.success("Statut du courrier mis à jour");
-    },
-    onError: (error) => {
-      console.error('Error updating courrier:', error);
-      toast.error("Erreur lors de la mise à jour du courrier");
-    },
-  });
-
-  // Update echeance status mutation
-  const updateEcheanceStatusMutation = useMutation({
-    mutationFn: async ({ id, statut }: { id: string; statut: 'actif' | 'traite' | 'expire' }) => {
-      const { error } = await supabase
-        .from('echeances')
-        .update({ 
-          statut,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', id);
-
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-echeances'] });
-      toast.success("Statut de l'échéance mis à jour");
-    },
-    onError: (error) => {
-      console.error('Error updating echeance:', error);
-      toast.error("Erreur lors de la mise à jour de l'échéance");
-    },
-  });
-
-  // Update payment status mutation
-  const updatePaymentStatusMutation = useMutation({
-    mutationFn: async ({ id, statut }: { id: string; statut: 'pending' | 'succeeded' | 'failed' | 'canceled' | 'refunded' }) => {
-      const { error } = await supabase
-        .from('paiements')
-        .update({ 
-          statut,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', id);
-
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-payments'] });
-      toast.success("Statut du paiement mis à jour");
-    },
-    onError: (error) => {
-      console.error('Error updating payment:', error);
-      toast.error("Erreur lors de la mise à jour du paiement");
-    },
-  });
-
-  // Create echeance mutation
-  const createEcheanceMutation = useMutation({
-    mutationFn: async (echeanceData: {
-      dossier_id: string;
-      type_echeance: 'reponse_reclamation' | 'delai_mediation' | 'prescription_biennale';
-      date_limite: string;
-      description?: string;
-    }) => {
-      const { error } = await supabase
-        .from('echeances')
-        .insert([echeanceData]);
-
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-echeances'] });
-      toast.success("Échéance créée avec succès");
-    },
-    onError: (error) => {
-      console.error('Error creating echeance:', error);
-      toast.error("Erreur lors de la création de l'échéance");
-    },
-  });
+  const { courriers, echeances, payments, dossiers, isLoading } = useAdminData();
+  const {
+    updateCourrierMutation,
+    updateEcheanceStatusMutation,
+    updatePaymentStatusMutation,
+    createEcheanceMutation,
+  } = useAdminMutations();
 
   const handleCourrierStatusUpdate = (id: string, statut: string, adminId?: string) => {
     updateCourrierMutation.mutate({ id, statut, admin_validateur: adminId });
@@ -242,8 +42,6 @@ const AdminDashboard = () => {
     // Logout logic would be implemented here
     console.log("Logout clicked");
   };
-
-  const isLoading = courriersLoading || echeancesLoading || paymentsLoading;
 
   // Calculate stats for AdminStatsCards
   const stats = {
@@ -273,67 +71,18 @@ const AdminDashboard = () => {
               <TabsTrigger value="audit">Audit</TabsTrigger>
             </TabsList>
             
-            <TabsContent value="courriers" className="mt-6">
-              {isLoading ? (
-                <Card>
-                  <CardContent className="text-center py-8">
-                    <p>Chargement des courriers...</p>
-                  </CardContent>
-                </Card>
-              ) : (
-                <CourriersList 
-                  courriers={courriers}
-                  onValidate={(id) => handleCourrierStatusUpdate(id, 'valide_pret_envoi')}
-                  onReject={(id) => handleCourrierStatusUpdate(id, 'rejete')}
-                />
-              )}
-            </TabsContent>
-            
-            <TabsContent value="echeances" className="mt-6">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold">Gestion des Échéances</h2>
-                <CreateEcheanceDialog
-                  dossiers={dossiers}
-                  onCreateEcheance={handleCreateEcheance}
-                />
-              </div>
-              
-              {isLoading ? (
-                <Card>
-                  <CardContent className="text-center py-8">
-                    <p>Chargement des échéances...</p>
-                  </CardContent>
-                </Card>
-              ) : (
-                <EcheancesList 
-                  echeances={echeances}
-                  onUpdateStatus={handleEcheanceStatusUpdate}
-                />
-              )}
-            </TabsContent>
-
-            <TabsContent value="payments" className="mt-6">
-              {isLoading ? (
-                <Card>
-                  <CardContent className="text-center py-8">
-                    <p>Chargement des paiements...</p>
-                  </CardContent>
-                </Card>
-              ) : (
-                <PaymentsList 
-                  payments={payments}
-                  onUpdateStatus={handlePaymentStatusUpdate}
-                />
-              )}
-            </TabsContent>
-            
-            <TabsContent value="users" className="mt-6">
-              <UserManagement />
-            </TabsContent>
-            
-            <TabsContent value="audit" className="mt-6">
-              <AuditLog />
-            </TabsContent>
+            <AdminTabsContent
+              isLoading={isLoading}
+              courriers={courriers}
+              echeances={echeances}
+              payments={payments}
+              dossiers={dossiers}
+              onCourrierValidate={(id) => handleCourrierStatusUpdate(id, 'valide_pret_envoi')}
+              onCourrierReject={(id) => handleCourrierStatusUpdate(id, 'rejete')}
+              onEcheanceStatusUpdate={handleEcheanceStatusUpdate}
+              onPaymentStatusUpdate={handlePaymentStatusUpdate}
+              onCreateEcheance={handleCreateEcheance}
+            />
           </Tabs>
         </div>
       </div>

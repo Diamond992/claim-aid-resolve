@@ -1,0 +1,110 @@
+
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+
+export const useAdminData = () => {
+  // Fetch courriers data
+  const { data: courriers = [], isLoading: courriersLoading } = useQuery({
+    queryKey: ['admin-courriers'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('courriers_projets')
+        .select(`
+          *,
+          dossier:dossiers (
+            client_id,
+            compagnie_assurance,
+            type_sinistre,
+            montant_refuse,
+            profiles (
+              first_name,
+              last_name,
+              email
+            )
+          )
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Fetch echeances data
+  const { data: echeances = [], isLoading: echeancesLoading } = useQuery({
+    queryKey: ['admin-echeances'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('echeances')
+        .select(`
+          *,
+          dossier:dossiers (
+            compagnie_assurance,
+            profiles (
+              first_name,
+              last_name
+            )
+          )
+        `)
+        .order('date_limite', { ascending: true });
+
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Fetch payments data
+  const { data: payments = [], isLoading: paymentsLoading } = useQuery({
+    queryKey: ['admin-payments'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('paiements')
+        .select(`
+          *,
+          profiles (
+            first_name,
+            last_name,
+            email
+          ),
+          dossier:dossiers (
+            compagnie_assurance
+          )
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Fetch dossiers for echeances creation
+  const { data: dossiers = [] } = useQuery({
+    queryKey: ['admin-dossiers'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('dossiers')
+        .select(`
+          id,
+          compagnie_assurance,
+          profiles (
+            first_name,
+            last_name
+          )
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const isLoading = courriersLoading || echeancesLoading || paymentsLoading;
+
+  return {
+    courriers,
+    echeances,
+    payments,
+    dossiers,
+    isLoading,
+  };
+};
