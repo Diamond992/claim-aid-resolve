@@ -292,6 +292,53 @@ export type Database = {
           },
         ]
       }
+      modeles_courriers: {
+        Row: {
+          actif: boolean
+          created_at: string
+          created_by: string | null
+          id: string
+          nom_modele: string
+          template_content: string
+          type_courrier: Database["public"]["Enums"]["type_courrier"]
+          type_sinistre: Database["public"]["Enums"]["type_sinistre"]
+          updated_at: string
+          variables_requises: Json
+        }
+        Insert: {
+          actif?: boolean
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          nom_modele: string
+          template_content: string
+          type_courrier: Database["public"]["Enums"]["type_courrier"]
+          type_sinistre: Database["public"]["Enums"]["type_sinistre"]
+          updated_at?: string
+          variables_requises?: Json
+        }
+        Update: {
+          actif?: boolean
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          nom_modele?: string
+          template_content?: string
+          type_courrier?: Database["public"]["Enums"]["type_courrier"]
+          type_sinistre?: Database["public"]["Enums"]["type_sinistre"]
+          updated_at?: string
+          variables_requises?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "modeles_courriers_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       paiements: {
         Row: {
           client_id: string

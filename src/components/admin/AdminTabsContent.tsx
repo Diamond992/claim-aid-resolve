@@ -7,6 +7,8 @@ import PaymentsList from "./PaymentsList";
 import CreateEcheanceDialog from "./CreateEcheanceDialog";
 import UserManagement from "./UserManagement";
 import AuditLog from "./AuditLog";
+import TemplatesList from "./TemplatesList";
+import { useTemplates } from "@/hooks/useTemplates";
 
 interface AdminTabsContentProps {
   isLoading: boolean;
@@ -38,6 +40,8 @@ const AdminTabsContent = ({
   onPaymentStatusUpdate,
   onCreateEcheance,
 }: AdminTabsContentProps) => {
+  const { templates, isLoading: templatesLoading, deleteTemplate } = useTemplates();
+
   const LoadingCard = () => (
     <Card>
       <CardContent className="text-center py-8">
@@ -45,6 +49,12 @@ const AdminTabsContent = ({
       </CardContent>
     </Card>
   );
+
+  const handleDeleteTemplate = (id: string) => {
+    if (window.confirm("Êtes-vous sûr de vouloir supprimer ce modèle ?")) {
+      deleteTemplate(id);
+    }
+  };
 
   return (
     <>
@@ -86,6 +96,17 @@ const AdminTabsContent = ({
           <PaymentsList 
             payments={payments}
             onUpdateStatus={onPaymentStatusUpdate}
+          />
+        )}
+      </TabsContent>
+
+      <TabsContent value="templates" className="mt-6">
+        {templatesLoading ? (
+          <LoadingCard />
+        ) : (
+          <TemplatesList 
+            templates={templates}
+            onDelete={handleDeleteTemplate}
           />
         )}
       </TabsContent>

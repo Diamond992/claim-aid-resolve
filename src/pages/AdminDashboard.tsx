@@ -6,10 +6,12 @@ import AdminStatsCards from "@/components/admin/AdminStatsCards";
 import AdminTabsContent from "@/components/admin/AdminTabsContent";
 import { useAdminData } from "@/hooks/useAdminData";
 import { useAdminMutations } from "@/hooks/useAdminMutations";
+import { useAuth } from "@/hooks/useAuth";
 
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState("courriers");
   const { courriers, echeances, payments, dossiers, isLoading } = useAdminData();
+  const { user, logout } = useAuth();
   const {
     updateCourrierMutation,
     updateEcheanceStatusMutation,
@@ -39,8 +41,7 @@ const AdminDashboard = () => {
   };
 
   const handleLogout = () => {
-    // Logout logic would be implemented here
-    console.log("Logout clicked");
+    logout();
   };
 
   // Calculate stats for AdminStatsCards
@@ -54,7 +55,7 @@ const AdminDashboard = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       <AdminHeader 
-        displayName="Administrateur"
+        displayName={user?.email || "Administrateur"}
         onLogout={handleLogout}
       />
       
@@ -63,10 +64,11 @@ const AdminDashboard = () => {
         
         <div className="mt-8">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-6">
               <TabsTrigger value="courriers">Courriers</TabsTrigger>
               <TabsTrigger value="echeances">Échéances</TabsTrigger>
               <TabsTrigger value="payments">Paiements</TabsTrigger>
+              <TabsTrigger value="templates">Modèles</TabsTrigger>
               <TabsTrigger value="users">Utilisateurs</TabsTrigger>
               <TabsTrigger value="audit">Audit</TabsTrigger>
             </TabsList>
