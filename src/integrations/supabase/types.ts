@@ -292,6 +292,66 @@ export type Database = {
           },
         ]
       }
+      paiements: {
+        Row: {
+          client_id: string
+          created_at: string
+          description: string | null
+          devise: string
+          dossier_id: string | null
+          id: string
+          metadata: Json | null
+          montant: number
+          statut: Database["public"]["Enums"]["statut_paiement"]
+          stripe_payment_intent_id: string
+          type_facturation: Database["public"]["Enums"]["type_facturation"]
+          updated_at: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          description?: string | null
+          devise?: string
+          dossier_id?: string | null
+          id?: string
+          metadata?: Json | null
+          montant: number
+          statut?: Database["public"]["Enums"]["statut_paiement"]
+          stripe_payment_intent_id: string
+          type_facturation: Database["public"]["Enums"]["type_facturation"]
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          description?: string | null
+          devise?: string
+          dossier_id?: string | null
+          id?: string
+          metadata?: Json | null
+          montant?: number
+          statut?: Database["public"]["Enums"]["statut_paiement"]
+          stripe_payment_intent_id?: string
+          type_facturation?: Database["public"]["Enums"]["type_facturation"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "paiements_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "paiements_dossier_id_fkey"
+            columns: ["dossier_id"]
+            isOneToOne: false
+            referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string | null
@@ -380,6 +440,12 @@ export type Database = {
         | "mediation"
         | "clos"
       statut_echeance: "actif" | "traite" | "expire"
+      statut_paiement:
+        | "pending"
+        | "succeeded"
+        | "failed"
+        | "canceled"
+        | "refunded"
       type_courrier: "reclamation_interne" | "mediation" | "mise_en_demeure"
       type_document:
         | "refus_assurance"
@@ -391,6 +457,7 @@ export type Database = {
         | "reponse_reclamation"
         | "delai_mediation"
         | "prescription_biennale"
+      type_facturation: "forfait_recours" | "abonnement_mensuel"
       type_sinistre: "auto" | "habitation" | "sante" | "autre"
     }
     CompositeTypes: {
@@ -523,6 +590,13 @@ export const Constants = {
         "clos",
       ],
       statut_echeance: ["actif", "traite", "expire"],
+      statut_paiement: [
+        "pending",
+        "succeeded",
+        "failed",
+        "canceled",
+        "refunded",
+      ],
       type_courrier: ["reclamation_interne", "mediation", "mise_en_demeure"],
       type_document: [
         "refus_assurance",
@@ -536,6 +610,7 @@ export const Constants = {
         "delai_mediation",
         "prescription_biennale",
       ],
+      type_facturation: ["forfait_recours", "abonnement_mensuel"],
       type_sinistre: ["auto", "habitation", "sante", "autre"],
     },
   },

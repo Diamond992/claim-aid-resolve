@@ -1,182 +1,57 @@
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Bot, Users, Activity, Settings, FileText, Calendar } from "lucide-react";
-import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
-import type { User as SupabaseUser } from "@supabase/supabase-js";
-import UserManagement from "@/components/admin/UserManagement";
-import AuditLog from "@/components/admin/AuditLog";
 import AdminHeader from "@/components/admin/AdminHeader";
 import AdminStatsCards from "@/components/admin/AdminStatsCards";
-import AdminFilters from "@/components/admin/AdminFilters";
 import CourriersList from "@/components/admin/CourriersList";
-import LegacyStatsCards from "@/components/admin/LegacyStatsCards";
-import LegacyCourriersList from "@/components/admin/LegacyCourriersList";
 import EcheancesList from "@/components/admin/EcheancesList";
+import PaymentsList from "@/components/admin/PaymentsList";
 import CreateEcheanceDialog from "@/components/admin/CreateEcheanceDialog";
-
-interface CourierData {
-  id: string;
-  dossier_id: string;
-  type_courrier: string;
-  contenu_genere: string;
-  contenu_final?: string;
-  statut: string;
-  admin_validateur?: string;
-  numero_suivi?: string;
-  cout_envoi?: number;
-  reference_laposte?: string;
-  date_creation: string;
-  date_validation?: string;
-  date_envoi?: string;
-  dossier: {
-    client_id: string;
-    compagnie_assurance: string;
-    type_sinistre: string;
-    montant_refuse: number;
-    profiles: {
-      first_name: string;
-      last_name: string;
-      email: string;
-    };
-  };
-}
-
-interface EcheanceData {
-  id: string;
-  dossier_id: string;
-  type_echeance: 'reponse_reclamation' | 'delai_mediation' | 'prescription_biennale';
-  date_limite: string;
-  date_alerte: string;
-  statut: 'actif' | 'traite' | 'expire';
-  description?: string;
-  notifie: boolean;
-  created_at: string;
-  dossier?: {
-    compagnie_assurance: string;
-    profiles: {
-      first_name: string;
-      last_name: string;
-    };
-  };
-}
-
-interface DossierData {
-  id: string;
-  compagnie_assurance: string;
-  profiles: {
-    first_name: string;
-    last_name: string;
-  };
-}
+import UserManagement from "@/components/admin/UserManagement";
+import AuditLog from "@/components/admin/AuditLog";
 
 const AdminDashboard = () => {
-  const navigate = useNavigate();
-  const [user, setUser] = useState<SupabaseUser | null>(null);
-  const [profile, setProfile] = useState<any>(null);
-  const [courriers, setCourriers] = useState<CourierData[]>([]);
-  const [echeances, setEcheances] = useState<EcheanceData[]>([]);
-  const [dossiers, setDossiers] = useState<DossierData[]>([]);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [isLoading, setIsLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("courriers");
+  const queryClient = useQueryClient();
 
-  useEffect(() => {
-    const getUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
-        navigate('/login');
-        return;
-      }
-
-      setUser(session.user);
-
-      // Get user profile
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', session.user.id)
-        .single();
-
-      // Get user roles separately
-      const { data: userRoles } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', session.user.id);
-
-      // Check if user has admin role
-      const hasAdminRole = userRoles?.some(roleRecord => roleRecord.role === 'admin');
-
-      if (!hasAdminRole) {
-        toast.error("Accès refusé. Compte administrateur requis.");
-        navigate('/dashboard');
-        return;
-      }
-
-      setProfile({ ...profileData, user_roles: userRoles });
-      
-      // Load data
-      await Promise.all([loadCourriers(), loadEcheances(), loadDossiers()]);
-      setIsLoading(false);
-    };
-
-    getUser();
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_OUT') {
-        navigate('/login');
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, [navigate]);
-
-  const loadCourriers = async () => {
-    try {
+  // Fetch courriers data
+  const { data: courriers = [], isLoading: courriersLoading } = useQuery({
+    queryKey: ['admin-courriers'],
+    queryFn: async () => {
       const { data, error } = await supabase
         .from('courriers_projets')
         .select(`
           *,
           dossier:dossiers (
-            client_id,
             compagnie_assurance,
-            type_sinistre,
-            montant_refuse,
-            profiles:client_id (
+            profiles (
               first_name,
-              last_name,
-              email
+              last_name
             )
           )
         `)
         .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('Error loading courriers:', error);
-        toast.error("Erreur lors du chargement des courriers");
-        return;
-      }
+      if (error) throw error;
+      return data;
+    },
+  });
 
-      setCourriers(data || []);
-    } catch (error) {
-      console.error('Error loading courriers:', error);
-    }
-  };
-
-  const loadEcheances = async () => {
-    try {
+  // Fetch echeances data
+  const { data: echeances = [], isLoading: echeancesLoading } = useQuery({
+    queryKey: ['admin-echeances'],
+    queryFn: async () => {
       const { data, error } = await supabase
         .from('echeances')
         .select(`
           *,
           dossier:dossiers (
             compagnie_assurance,
-            profiles:client_id (
+            profiles (
               first_name,
               last_name
             )
@@ -184,265 +59,266 @@ const AdminDashboard = () => {
         `)
         .order('date_limite', { ascending: true });
 
-      if (error) {
-        console.error('Error loading echeances:', error);
-        toast.error("Erreur lors du chargement des échéances");
-        return;
-      }
+      if (error) throw error;
+      return data;
+    },
+  });
 
-      setEcheances(data || []);
-    } catch (error) {
-      console.error('Error loading echeances:', error);
-    }
-  };
+  // Fetch payments data
+  const { data: payments = [], isLoading: paymentsLoading } = useQuery({
+    queryKey: ['admin-payments'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('paiements')
+        .select(`
+          *,
+          profiles (
+            first_name,
+            last_name,
+            email
+          ),
+          dossier:dossiers (
+            compagnie_assurance
+          )
+        `)
+        .order('created_at', { ascending: false });
 
-  const loadDossiers = async () => {
-    try {
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Fetch dossiers for echeances creation
+  const { data: dossiers = [] } = useQuery({
+    queryKey: ['admin-dossiers'],
+    queryFn: async () => {
       const { data, error } = await supabase
         .from('dossiers')
         .select(`
           id,
           compagnie_assurance,
-          profiles:client_id (
+          profiles (
             first_name,
             last_name
           )
         `)
         .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('Error loading dossiers:', error);
-        return;
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Update courrier status mutation
+  const updateCourrierMutation = useMutation({
+    mutationFn: async ({ id, statut, admin_validateur }: { 
+      id: string; 
+      statut: string; 
+      admin_validateur?: string;
+    }) => {
+      const updateData: any = { 
+        statut,
+        updated_at: new Date().toISOString()
+      };
+      
+      if (statut === 'valide_pret_envoi' || statut === 'modifie_pret_envoi') {
+        updateData.admin_validateur = admin_validateur;
+        updateData.date_validation = new Date().toISOString();
       }
 
-      setDossiers(data || []);
-    } catch (error) {
-      console.error('Error loading dossiers:', error);
-    }
-  };
-
-  const handleLogout = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      toast.error("Erreur lors de la déconnexion");
-    } else {
-      toast.success("Déconnexion réussie");
-      navigate('/');
-    }
-  };
-
-  const handleValidateLetter = async (courrierId: string) => {
-    try {
       const { error } = await supabase
         .from('courriers_projets')
-        .update({
-          statut: 'valide_pret_envoi',
-          admin_validateur: user?.id,
-          date_validation: new Date().toISOString()
-        })
-        .eq('id', courrierId);
+        .update(updateData)
+        .eq('id', id);
 
-      if (error) {
-        toast.error("Erreur lors de la validation");
-        return;
-      }
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-courriers'] });
+      toast.success("Statut du courrier mis à jour");
+    },
+    onError: (error) => {
+      console.error('Error updating courrier:', error);
+      toast.error("Erreur lors de la mise à jour du courrier");
+    },
+  });
 
-      toast.success("Courrier validé avec succès");
-      await loadCourriers();
-    } catch (error) {
-      toast.error("Erreur lors de la validation");
-    }
-  };
-
-  const handleRejectLetter = async (courrierId: string) => {
-    try {
-      const { error } = await supabase
-        .from('courriers_projets')
-        .update({
-          statut: 'rejete',
-          admin_validateur: user?.id,
-          date_validation: new Date().toISOString()
-        })
-        .eq('id', courrierId);
-
-      if (error) {
-        toast.error("Erreur lors du rejet");
-        return;
-      }
-
-      toast.success("Courrier rejeté");
-      await loadCourriers();
-    } catch (error) {
-      toast.error("Erreur lors du rejet");
-    }
-  };
-
-  const handleUpdateEcheanceStatus = async (echeanceId: string, status: 'actif' | 'traite' | 'expire') => {
-    try {
+  // Update echeance status mutation
+  const updateEcheanceStatusMutation = useMutation({
+    mutationFn: async ({ id, statut }: { id: string; statut: string }) => {
       const { error } = await supabase
         .from('echeances')
-        .update({ statut: status })
-        .eq('id', echeanceId);
+        .update({ 
+          statut,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id);
 
-      if (error) {
-        toast.error("Erreur lors de la mise à jour du statut");
-        return;
-      }
-
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-echeances'] });
       toast.success("Statut de l'échéance mis à jour");
-      await loadEcheances();
-    } catch (error) {
-      toast.error("Erreur lors de la mise à jour");
-    }
+    },
+    onError: (error) => {
+      console.error('Error updating echeance:', error);
+      toast.error("Erreur lors de la mise à jour de l'échéance");
+    },
+  });
+
+  // Update payment status mutation
+  const updatePaymentStatusMutation = useMutation({
+    mutationFn: async ({ id, statut }: { id: string; statut: string }) => {
+      const { error } = await supabase
+        .from('paiements')
+        .update({ 
+          statut,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-payments'] });
+      toast.success("Statut du paiement mis à jour");
+    },
+    onError: (error) => {
+      console.error('Error updating payment:', error);
+      toast.error("Erreur lors de la mise à jour du paiement");
+    },
+  });
+
+  // Create echeance mutation
+  const createEcheanceMutation = useMutation({
+    mutationFn: async (echeanceData: {
+      dossier_id: string;
+      type_echeance: 'reponse_reclamation' | 'delai_mediation' | 'prescription_biennale';
+      date_limite: string;
+      description?: string;
+    }) => {
+      const { error } = await supabase
+        .from('echeances')
+        .insert([echeanceData]);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-echeances'] });
+      toast.success("Échéance créée avec succès");
+    },
+    onError: (error) => {
+      console.error('Error creating echeance:', error);
+      toast.error("Erreur lors de la création de l'échéance");
+    },
+  });
+
+  const handleCourrierStatusUpdate = (id: string, statut: string, adminId?: string) => {
+    updateCourrierMutation.mutate({ id, statut, admin_validateur: adminId });
   };
 
-  const handleCreateEcheance = async (echeanceData: {
+  const handleEcheanceStatusUpdate = (id: string, statut: 'actif' | 'traite' | 'expire') => {
+    updateEcheanceStatusMutation.mutate({ id, statut });
+  };
+
+  const handlePaymentStatusUpdate = (id: string, statut: 'pending' | 'succeeded' | 'failed' | 'canceled' | 'refunded') => {
+    updatePaymentStatusMutation.mutate({ id, statut });
+  };
+
+  const handleCreateEcheance = (echeanceData: {
     dossier_id: string;
     type_echeance: 'reponse_reclamation' | 'delai_mediation' | 'prescription_biennale';
     date_limite: string;
     description?: string;
   }) => {
-    try {
-      const { error } = await supabase
-        .from('echeances')
-        .insert([echeanceData]);
-
-      if (error) {
-        toast.error("Erreur lors de la création de l'échéance");
-        return;
-      }
-
-      toast.success("Échéance créée avec succès");
-      await loadEcheances();
-    } catch (error) {
-      toast.error("Erreur lors de la création");
-    }
+    createEcheanceMutation.mutate(echeanceData);
   };
 
-  const filteredCourriers = courriers.filter(courrier => {
-    const clientName = `${courrier.dossier?.profiles?.first_name || ''} ${courrier.dossier?.profiles?.last_name || ''}`.toLowerCase();
-    const matchesSearch = clientName.includes(searchTerm.toLowerCase()) ||
-                         courrier.dossier?.compagnie_assurance?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === "all" || courrier.statut === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
-
-  const stats = {
-    total: courriers.length,
-    pending: courriers.filter(c => c.statut === "en_attente_validation").length,
-    validated: courriers.filter(c => c.statut === "valide_pret_envoi" || c.statut === "modifie_pret_envoi").length,
-    sent: courriers.filter(c => c.statut === "envoye").length
-  };
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
-        <div>Chargement...</div>
-      </div>
-    );
-  }
-
-  const displayName = profile ? `${profile.first_name} ${profile.last_name}` : user?.email || "Administrateur";
+  const isLoading = courriersLoading || echeancesLoading || paymentsLoading;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
-      <AdminHeader displayName={displayName} onLogout={handleLogout} />
+    <div className="min-h-screen bg-gray-50">
+      <AdminHeader />
+      
+      <div className="container mx-auto px-6 py-8">
+        <AdminStatsCards 
+          courriers={courriers}
+          echeances={echeances}
+          payments={payments}
+        />
+        
+        <div className="mt-8">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-5">
+              <TabsTrigger value="courriers">Courriers</TabsTrigger>
+              <TabsTrigger value="echeances">Échéances</TabsTrigger>
+              <TabsTrigger value="payments">Paiements</TabsTrigger>
+              <TabsTrigger value="users">Utilisateurs</TabsTrigger>
+              <TabsTrigger value="audit">Audit</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="courriers" className="mt-6">
+              {isLoading ? (
+                <Card>
+                  <CardContent className="text-center py-8">
+                    <p>Chargement des courriers...</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <CourriersList 
+                  courriers={courriers}
+                  onUpdateStatus={handleCourrierStatusUpdate}
+                />
+              )}
+            </TabsContent>
+            
+            <TabsContent value="echeances" className="mt-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold">Gestion des Échéances</h2>
+                <CreateEcheanceDialog
+                  dossiers={dossiers}
+                  onCreateEcheance={handleCreateEcheance}
+                />
+              </div>
+              
+              {isLoading ? (
+                <Card>
+                  <CardContent className="text-center py-8">
+                    <p>Chargement des échéances...</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <EcheancesList 
+                  echeances={echeances}
+                  onUpdateStatus={handleEcheanceStatusUpdate}
+                />
+              )}
+            </TabsContent>
 
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <Tabs defaultValue="courriers" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6">
-            <TabsTrigger value="courriers">
-              <Bot className="h-4 w-4 mr-2" />
-              Courriers IA
-            </TabsTrigger>
-            <TabsTrigger value="echeances">
-              <Calendar className="h-4 w-4 mr-2" />
-              Échéances
-            </TabsTrigger>
-            <TabsTrigger value="users">
-              <Users className="h-4 w-4 mr-2" />
-              Utilisateurs
-            </TabsTrigger>
-            <TabsTrigger value="audit">
-              <Activity className="h-4 w-4 mr-2" />
-              Journal d'Audit
-            </TabsTrigger>
-            <TabsTrigger value="settings">
-              <Settings className="h-4 w-4 mr-2" />
-              Paramètres
-            </TabsTrigger>
-            <TabsTrigger value="legacy">
-              <FileText className="h-4 w-4 mr-2" />
-              Vue Legacy
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="courriers">
-            <AdminStatsCards stats={stats} />
-            <AdminFilters
-              searchTerm={searchTerm}
-              statusFilter={statusFilter}
-              onSearchChange={setSearchTerm}
-              onStatusChange={setStatusFilter}
-            />
-            <CourriersList
-              courriers={filteredCourriers}
-              onValidate={handleValidateLetter}
-              onReject={handleRejectLetter}
-            />
-          </TabsContent>
-
-          <TabsContent value="echeances">
-            <div className="flex justify-end mb-6">
-              <CreateEcheanceDialog
-                dossiers={dossiers}
-                onCreateEcheance={handleCreateEcheance}
-              />
-            </div>
-            <EcheancesList
-              echeances={echeances}
-              onUpdateStatus={handleUpdateEcheanceStatus}
-            />
-          </TabsContent>
-
-          <TabsContent value="users">
-            <UserManagement />
-          </TabsContent>
-
-          <TabsContent value="audit">
-            <AuditLog />
-          </TabsContent>
-
-          <TabsContent value="settings">
-            <Card>
-              <CardHeader>
-                <CardTitle>Paramètres Système</CardTitle>
-                <CardDescription>
-                  Configuration et paramètres avancés du système
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-gray-600">
-                  Les paramètres système seront disponibles dans une prochaine version.
-                </p>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="legacy">
-            <LegacyStatsCards stats={stats} />
-            <AdminFilters
-              searchTerm={searchTerm}
-              statusFilter={statusFilter}
-              onSearchChange={setSearchTerm}
-              onStatusChange={setStatusFilter}
-            />
-            <LegacyCourriersList
-              courriers={filteredCourriers}
-              onValidate={handleValidateLetter}
-            />
-          </TabsContent>
-        </Tabs>
+            <TabsContent value="payments" className="mt-6">
+              {isLoading ? (
+                <Card>
+                  <CardContent className="text-center py-8">
+                    <p>Chargement des paiements...</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <PaymentsList 
+                  payments={payments}
+                  onUpdateStatus={handlePaymentStatusUpdate}
+                />
+              )}
+            </TabsContent>
+            
+            <TabsContent value="users" className="mt-6">
+              <UserManagement />
+            </TabsContent>
+            
+            <TabsContent value="audit" className="mt-6">
+              <AuditLog />
+            </TabsContent>
+          </Tabs>
+        </div>
       </div>
     </div>
   );
