@@ -32,13 +32,25 @@ interface Payment {
 
 interface PaymentsListProps {
   payments: Payment[];
-  onUpdateStatus: (id: string, status: 'pending' | 'succeeded' | 'failed' | 'canceled' | 'refunded') => void;
+  isLoading: boolean;
+  onStatusUpdate: (id: string, status: 'pending' | 'succeeded' | 'failed' | 'canceled' | 'refunded') => void;
 }
 
-const PaymentsList = ({ payments, onUpdateStatus }: PaymentsListProps) => {
+const PaymentsList = ({ payments, isLoading, onStatusUpdate }: PaymentsListProps) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardContent className="text-center py-8">
+          <CreditCard className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+          <p className="text-gray-600">Chargement des paiements...</p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   const filteredPayments = payments.filter(payment => {
     const clientName = `${payment.profiles?.first_name || ''} ${payment.profiles?.last_name || ''}`.toLowerCase();
@@ -149,7 +161,7 @@ const PaymentsList = ({ payments, onUpdateStatus }: PaymentsListProps) => {
             <PaymentCard
               key={payment.id}
               payment={payment}
-              onUpdateStatus={onUpdateStatus}
+              onUpdateStatus={onStatusUpdate}
             />
           ))
         )}

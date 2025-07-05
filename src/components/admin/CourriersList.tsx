@@ -32,11 +32,26 @@ interface CourierData {
 
 interface CourriersListProps {
   courriers: CourierData[];
+  isLoading: boolean;
   onValidate: (id: string) => void;
   onReject: (id: string) => void;
 }
 
-const CourriersList = ({ courriers, onValidate, onReject }: CourriersListProps) => {
+const CourriersList = ({ courriers, isLoading, onValidate, onReject }: CourriersListProps) => {
+  if (isLoading) {
+    return (
+      <Card className="text-center py-12">
+        <CardContent>
+          <Bot className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">Chargement...</h3>
+          <p className="text-gray-600">
+            Chargement des courriers en cours...
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   if (courriers.length === 0) {
     return (
       <Card className="text-center py-12">
