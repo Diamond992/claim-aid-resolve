@@ -40,21 +40,33 @@ const ActivityLogsList = () => {
 
   const fetchActivityLogs = async () => {
     try {
-      const { data, error } = await supabase
-        .from('activity_logs')
-        .select(`
-          *,
-          profiles!activity_logs_user_id_fkey (first_name, last_name, email),
-          dossier:dossiers (compagnie_assurance)
-        `)
-        .order('created_at', { ascending: false })
-        .limit(200);
-
-      if (error) throw error;
-      setLogs(data || []);
+      // Use raw SQL query since TypeScript types haven't been updated yet
+      const { data, error } = await supabase.rpc('get_activity_logs_with_profiles');
+      
+      if (error) {
+        // Fallback to direct query if RPC doesn't exist
+        const fallbackQuery = await supabase
+          .from('activity_logs' as any)
+          .select(`
+            *,
+            profiles!activity_logs_user_id_fkey (first_name, last_name, email),
+            dossier:dossiers (compagnie_assurance)
+          `)
+          .order('created_at', { ascending: false })
+          .limit(200);
+        
+        if (fallbackQuery.error) {
+          throw fallbackQuery.error;
+        }
+        setLogs(fallbackQuery.data || []);
+      } else {
+        setLogs(data || []);
+      }
     } catch (error) {
       console.error('Error fetching activity logs:', error);
       toast.error("Erreur lors du chargement des logs d'activité");
+      // Set empty array to prevent crashes
+      setLogs([]);
     } finally {
       setIsLoading(false);
     }
@@ -164,7 +176,9 @@ const ActivityLogsList = () => {
               {filteredLogs.length === 0 ? (
                 <div className="text-center py-8">
                   <Activity className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600">Aucun log trouvé</p>
+                  <p className="text-gray-600">
+                    {logs.length === 0 ? "Aucun log disponible" : "Aucun log trouvé"}
+                  </p>
                 </div>
               ) : (
                 filteredLogs.map((log) => (
