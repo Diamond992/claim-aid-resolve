@@ -69,6 +69,47 @@ export type Database = {
         }
         Relationships: []
       }
+      configuration: {
+        Row: {
+          cle: string
+          description: string | null
+          id: string
+          modifiable: boolean
+          type: Database["public"]["Enums"]["config_type"]
+          updated_at: string
+          updated_by: string | null
+          valeur: string
+        }
+        Insert: {
+          cle: string
+          description?: string | null
+          id?: string
+          modifiable?: boolean
+          type: Database["public"]["Enums"]["config_type"]
+          updated_at?: string
+          updated_by?: string | null
+          valeur: string
+        }
+        Update: {
+          cle?: string
+          description?: string | null
+          id?: string
+          modifiable?: boolean
+          type?: Database["public"]["Enums"]["config_type"]
+          updated_at?: string
+          updated_by?: string | null
+          valeur?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "configuration_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       courriers_projets: {
         Row: {
           admin_validateur: string | null
@@ -474,6 +515,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "user"
+      config_type: "string" | "number" | "boolean" | "json"
       statut_courrier:
         | "en_attente_validation"
         | "valide_pret_envoi"
@@ -622,6 +664,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "user"],
+      config_type: ["string", "number", "boolean", "json"],
       statut_courrier: [
         "en_attente_validation",
         "valide_pret_envoi",

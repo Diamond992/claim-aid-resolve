@@ -64,11 +64,12 @@ const AdminDashboard = () => {
         
         <div className="mt-8">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-6">
+            <TabsList className="grid w-full grid-cols-7">
               <TabsTrigger value="courriers">Courriers</TabsTrigger>
               <TabsTrigger value="echeances">Échéances</TabsTrigger>
               <TabsTrigger value="payments">Paiements</TabsTrigger>
               <TabsTrigger value="templates">Modèles</TabsTrigger>
+              <TabsTrigger value="configuration">Config</TabsTrigger>
               <TabsTrigger value="users">Utilisateurs</TabsTrigger>
               <TabsTrigger value="audit">Audit</TabsTrigger>
             </TabsList>

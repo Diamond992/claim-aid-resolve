@@ -1,13 +1,12 @@
 
-import { Card, CardContent } from "@/components/ui/card";
 import { TabsContent } from "@/components/ui/tabs";
 import CourriersList from "./CourriersList";
 import EcheancesList from "./EcheancesList";
 import PaymentsList from "./PaymentsList";
-import CreateEcheanceDialog from "./CreateEcheanceDialog";
+import TemplatesList from "./TemplatesList";
 import UserManagement from "./UserManagement";
 import AuditLog from "./AuditLog";
-import TemplatesList from "./TemplatesList";
+import ConfigurationList from "./ConfigurationList";
 import { useTemplates } from "@/hooks/useTemplates";
 
 interface AdminTabsContentProps {
@@ -40,81 +39,55 @@ const AdminTabsContent = ({
   onPaymentStatusUpdate,
   onCreateEcheance,
 }: AdminTabsContentProps) => {
-  const { templates, isLoading: templatesLoading, deleteTemplate } = useTemplates();
-
-  const LoadingCard = () => (
-    <Card>
-      <CardContent className="text-center py-8">
-        <p>Chargement...</p>
-      </CardContent>
-    </Card>
-  );
-
-  const handleDeleteTemplate = (id: string) => {
-    if (window.confirm("Êtes-vous sûr de vouloir supprimer ce modèle ?")) {
-      deleteTemplate(id);
-    }
-  };
+  const { templates, deleteTemplate, updateTemplateStatus } = useTemplates();
 
   return (
     <>
       <TabsContent value="courriers" className="mt-6">
-        {isLoading ? (
-          <LoadingCard />
-        ) : (
-          <CourriersList 
-            courriers={courriers}
-            onValidate={onCourrierValidate}
-            onReject={onCourrierReject}
-          />
-        )}
+        <CourriersList
+          courriers={courriers}
+          isLoading={isLoading}
+          onValidate={onCourrierValidate}
+          onReject={onCourrierReject}
+        />
       </TabsContent>
-      
+
       <TabsContent value="echeances" className="mt-6">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold">Gestion des Échéances</h2>
-          <CreateEcheanceDialog
-            dossiers={dossiers}
-            onCreateEcheance={onCreateEcheance}
-          />
-        </div>
-        
-        {isLoading ? (
-          <LoadingCard />
-        ) : (
-          <EcheancesList 
-            echeances={echeances}
-            onUpdateStatus={onEcheanceStatusUpdate}
-          />
-        )}
+        <EcheancesList
+          echeances={echeances}
+          dossiers={dossiers}
+          isLoading={isLoading}
+          onStatusUpdate={onEcheanceStatusUpdate}
+          onCreateEcheance={onCreateEcheance}
+        />
       </TabsContent>
 
       <TabsContent value="payments" className="mt-6">
-        {isLoading ? (
-          <LoadingCard />
-        ) : (
-          <PaymentsList 
-            payments={payments}
-            onUpdateStatus={onPaymentStatusUpdate}
-          />
-        )}
+        <PaymentsList
+          payments={payments}
+          isLoading={isLoading}
+          onStatusUpdate={onPaymentStatusUpdate}
+        />
       </TabsContent>
 
       <TabsContent value="templates" className="mt-6">
-        {templatesLoading ? (
-          <LoadingCard />
-        ) : (
-          <TemplatesList 
-            templates={templates}
-            onDelete={handleDeleteTemplate}
-          />
-        )}
+        <TemplatesList
+          templates={templates}
+          onDelete={deleteTemplate}
+          onEdit={(template) => {
+            updateTemplateStatus({ id: template.id, actif: !template.actif });
+          }}
+        />
       </TabsContent>
-      
+
+      <TabsContent value="configuration" className="mt-6">
+        <ConfigurationList />
+      </TabsContent>
+
       <TabsContent value="users" className="mt-6">
         <UserManagement />
       </TabsContent>
-      
+
       <TabsContent value="audit" className="mt-6">
         <AuditLog />
       </TabsContent>
