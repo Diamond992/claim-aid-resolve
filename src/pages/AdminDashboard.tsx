@@ -11,7 +11,7 @@ import { useAuth } from "@/hooks/useAuth";
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState("courriers");
   const { courriers, echeances, payments, dossiers, isLoading } = useAdminData();
-  const { user, logout } = useAuth();
+  const { user, signOut } = useAuth();
   const {
     updateCourrierMutation,
     updateEcheanceStatusMutation,
@@ -41,7 +41,7 @@ const AdminDashboard = () => {
   };
 
   const handleLogout = () => {
-    logout();
+    signOut();
   };
 
   // Calculate stats for AdminStatsCards

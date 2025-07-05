@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Eye, Edit, Trash2, Plus } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Json } from "@/integrations/supabase/types";
 
 interface Template {
   id: string;
@@ -13,7 +14,7 @@ interface Template {
   type_sinistre: string;
   type_courrier: string;
   template_content: string;
-  variables_requises: string[];
+  variables_requises: Json;
   actif: boolean;
   created_at: string;
   updated_at: string;
@@ -54,6 +55,13 @@ const TemplatesList = ({ templates, onEdit, onDelete, onCreate }: TemplatesListP
       case 'mise_en_demeure': return 'Mise en demeure';
       default: return type;
     }
+  };
+
+  const getVariablesArray = (variables: Json): string[] => {
+    if (Array.isArray(variables)) {
+      return variables as string[];
+    }
+    return [];
   };
 
   return (
@@ -115,7 +123,7 @@ const TemplatesList = ({ templates, onEdit, onDelete, onCreate }: TemplatesListP
                         <div>
                           <h4 className="font-semibold mb-2">Variables requises :</h4>
                           <div className="flex flex-wrap gap-1">
-                            {template.variables_requises.map((variable, index) => (
+                            {getVariablesArray(template.variables_requises).map((variable, index) => (
                               <Badge key={index} variant="outline" className="text-xs">
                                 {`{{${variable}}}`}
                               </Badge>
@@ -160,7 +168,7 @@ const TemplatesList = ({ templates, onEdit, onDelete, onCreate }: TemplatesListP
             </CardHeader>
             <CardContent>
               <div className="text-sm text-gray-600">
-                <p>Variables : {template.variables_requises.length}</p>
+                <p>Variables : {getVariablesArray(template.variables_requises).length}</p>
                 <p>Créé le : {new Date(template.created_at).toLocaleDateString('fr-FR')}</p>
               </div>
             </CardContent>
