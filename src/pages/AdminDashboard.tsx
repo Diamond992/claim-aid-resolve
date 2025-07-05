@@ -27,10 +27,14 @@ const AdminDashboard = () => {
         .select(`
           *,
           dossier:dossiers (
+            client_id,
             compagnie_assurance,
+            type_sinistre,
+            montant_refuse,
             profiles (
               first_name,
-              last_name
+              last_name,
+              email
             )
           )
         `)
@@ -145,7 +149,7 @@ const AdminDashboard = () => {
 
   // Update echeance status mutation
   const updateEcheanceStatusMutation = useMutation({
-    mutationFn: async ({ id, statut }: { id: string; statut: string }) => {
+    mutationFn: async ({ id, statut }: { id: string; statut: 'actif' | 'traite' | 'expire' }) => {
       const { error } = await supabase
         .from('echeances')
         .update({ 
@@ -168,7 +172,7 @@ const AdminDashboard = () => {
 
   // Update payment status mutation
   const updatePaymentStatusMutation = useMutation({
-    mutationFn: async ({ id, statut }: { id: string; statut: string }) => {
+    mutationFn: async ({ id, statut }: { id: string; statut: 'pending' | 'succeeded' | 'failed' | 'canceled' | 'refunded' }) => {
       const { error } = await supabase
         .from('paiements')
         .update({ 
@@ -234,18 +238,30 @@ const AdminDashboard = () => {
     createEcheanceMutation.mutate(echeanceData);
   };
 
+  const handleLogout = () => {
+    // Logout logic would be implemented here
+    console.log("Logout clicked");
+  };
+
   const isLoading = courriersLoading || echeancesLoading || paymentsLoading;
+
+  // Calculate stats for AdminStatsCards
+  const stats = {
+    total: courriers.length,
+    pending: courriers.filter(c => c.statut === 'en_attente_validation').length,
+    validated: courriers.filter(c => c.statut === 'valide_pret_envoi' || c.statut === 'modifie_pret_envoi').length,
+    sent: courriers.filter(c => c.statut === 'envoye').length,
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <AdminHeader />
+      <AdminHeader 
+        displayName="Administrateur"
+        onLogout={handleLogout}
+      />
       
       <div className="container mx-auto px-6 py-8">
-        <AdminStatsCards 
-          courriers={courriers}
-          echeances={echeances}
-          payments={payments}
-        />
+        <AdminStatsCards stats={stats} />
         
         <div className="mt-8">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -267,7 +283,8 @@ const AdminDashboard = () => {
               ) : (
                 <CourriersList 
                   courriers={courriers}
-                  onUpdateStatus={handleCourrierStatusUpdate}
+                  onValidate={(id) => handleCourrierStatusUpdate(id, 'valide_pret_envoi')}
+                  onReject={(id) => handleCourrierStatusUpdate(id, 'rejete')}
                 />
               )}
             </TabsContent>
