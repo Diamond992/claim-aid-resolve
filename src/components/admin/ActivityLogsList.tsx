@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -40,32 +39,60 @@ const ActivityLogsList = () => {
 
   const fetchActivityLogs = async () => {
     try {
-      // Use raw SQL query since TypeScript types haven't been updated yet
-      const { data, error } = await supabase.rpc('get_activity_logs_with_profiles');
+      // Try the RPC function first with proper typing
+      const { data: rpcData, error: rpcError } = await supabase.rpc(
+        'get_activity_logs_with_profiles' as any
+      );
       
-      if (error) {
-        // Fallback to direct query if RPC doesn't exist
-        const fallbackQuery = await supabase
-          .from('activity_logs' as any)
-          .select(`
-            *,
-            profiles!activity_logs_user_id_fkey (first_name, last_name, email),
-            dossier:dossiers (compagnie_assurance)
-          `)
-          .order('created_at', { ascending: false })
-          .limit(200);
-        
-        if (fallbackQuery.error) {
-          throw fallbackQuery.error;
-        }
-        setLogs(fallbackQuery.data || []);
+      if (!rpcError && rpcData) {
+        setLogs(rpcData as ActivityLog[]);
       } else {
-        setLogs(data || []);
+        // Fallback: Try to query the table directly using raw SQL
+        const { data: sqlData, error: sqlError } = await supabase
+          .from('activity_logs' as any)
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(50);
+        
+        if (!sqlError && sqlData) {
+          // Transform the data to match our interface
+          const transformedData = await Promise.all(
+            sqlData.map(async (log: any) => {
+              // Get user profile
+              const { data: profile } = await supabase
+                .from('profiles')
+                .select('first_name, last_name, email')
+                .eq('id', log.user_id)
+                .single();
+              
+              // Get dossier info if exists
+              let dossier = null;
+              if (log.dossier_id) {
+                const { data: dossierData } = await supabase
+                  .from('dossiers')
+                  .select('compagnie_assurance')
+                  .eq('id', log.dossier_id)
+                  .single();
+                dossier = dossierData;
+              }
+              
+              return {
+                ...log,
+                profiles: profile || { first_name: '', last_name: '', email: '' },
+                dossier
+              };
+            })
+          );
+          
+          setLogs(transformedData);
+        } else {
+          console.log('No activity logs found or table does not exist yet');
+          setLogs([]);
+        }
       }
     } catch (error) {
       console.error('Error fetching activity logs:', error);
       toast.error("Erreur lors du chargement des logs d'activité");
-      // Set empty array to prevent crashes
       setLogs([]);
     } finally {
       setIsLoading(false);
