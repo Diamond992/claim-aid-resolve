@@ -1,103 +1,66 @@
 
-import { TabsContent } from "@/components/ui/tabs";
-import CourriersList from "./CourriersList";
-import EcheancesList from "./EcheancesList";
-import PaymentsList from "./PaymentsList";
-import TemplatesList from "./TemplatesList";
-import UserManagement from "./UserManagement";
-import AuditLog from "./AuditLog";
-import ConfigurationList from "./ConfigurationList";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CourriersList } from "./CourriersList";
+import { EcheancesList } from "./EcheancesList";
+import { PaymentsList } from "./PaymentsList";
+import { WebhookLogsList } from "./WebhookLogsList";
 import ActivityLogsList from "./ActivityLogsList";
-import { useTemplates } from "@/hooks/useTemplates";
+import { UserManagement } from "./UserManagement";
+import { TemplatesList } from "./TemplatesList";
+import { ConfigurationList } from "./ConfigurationList";
 
 interface AdminTabsContentProps {
-  isLoading: boolean;
   courriers: any[];
   echeances: any[];
   payments: any[];
   dossiers: any[];
-  onCourrierValidate: (id: string) => void;
-  onCourrierReject: (id: string) => void;
-  onEcheanceStatusUpdate: (id: string, statut: 'actif' | 'traite' | 'expire') => void;
-  onPaymentStatusUpdate: (id: string, statut: 'pending' | 'succeeded' | 'failed' | 'canceled' | 'refunded') => void;
-  onCreateEcheance: (echeanceData: {
-    dossier_id: string;
-    type_echeance: 'reponse_reclamation' | 'delai_mediation' | 'prescription_biennale';
-    date_limite: string;
-    description?: string;
-  }) => void;
 }
 
-const AdminTabsContent = ({
-  isLoading,
-  courriers,
-  echeances,
-  payments,
-  dossiers,
-  onCourrierValidate,
-  onCourrierReject,
-  onEcheanceStatusUpdate,
-  onPaymentStatusUpdate,
-  onCreateEcheance,
-}: AdminTabsContentProps) => {
-  const { templates, deleteTemplate, updateTemplateStatus } = useTemplates();
-
+export const AdminTabsContent = ({ courriers, echeances, payments, dossiers }: AdminTabsContentProps) => {
   return (
-    <>
+    <Tabs defaultValue="courriers" className="w-full">
+      <TabsList className="grid w-full grid-cols-8">
+        <TabsTrigger value="courriers">Courriers</TabsTrigger>
+        <TabsTrigger value="echeances">Échéances</TabsTrigger>
+        <TabsTrigger value="payments">Paiements</TabsTrigger>
+        <TabsTrigger value="webhooks">Webhooks</TabsTrigger>
+        <TabsTrigger value="activity">Activité</TabsTrigger>
+        <TabsTrigger value="users">Utilisateurs</TabsTrigger>
+        <TabsTrigger value="templates">Modèles</TabsTrigger>
+        <TabsTrigger value="config">Configuration</TabsTrigger>
+      </TabsList>
+      
       <TabsContent value="courriers" className="mt-6">
-        <CourriersList
-          courriers={courriers}
-          isLoading={isLoading}
-          onValidate={onCourrierValidate}
-          onReject={onCourrierReject}
-        />
+        <CourriersList courriers={courriers} />
       </TabsContent>
-
+      
       <TabsContent value="echeances" className="mt-6">
-        <EcheancesList
-          echeances={echeances}
-          dossiers={dossiers}
-          isLoading={isLoading}
-          onStatusUpdate={onEcheanceStatusUpdate}
-          onCreateEcheance={onCreateEcheance}
-        />
+        <EcheancesList echeances={echeances} dossiers={dossiers} />
       </TabsContent>
-
+      
       <TabsContent value="payments" className="mt-6">
-        <PaymentsList
-          payments={payments}
-          isLoading={isLoading}
-          onStatusUpdate={onPaymentStatusUpdate}
-        />
+        <PaymentsList payments={payments} />
       </TabsContent>
-
-      <TabsContent value="templates" className="mt-6">
-        <TemplatesList
-          templates={templates}
-          onDelete={deleteTemplate}
-          onEdit={(template) => {
-            updateTemplateStatus({ id: template.id, actif: !template.actif });
-          }}
-        />
+      
+      <TabsContent value="webhooks" className="mt-6">
+        <WebhookLogsList />
       </TabsContent>
-
-      <TabsContent value="configuration" className="mt-6">
-        <ConfigurationList />
-      </TabsContent>
-
-      <TabsContent value="users" className="mt-6">
-        <UserManagement />
-      </TabsContent>
-
-      <TabsContent value="audit" className="mt-6">
-        <AuditLog />
-      </TabsContent>
-
+      
       <TabsContent value="activity" className="mt-6">
         <ActivityLogsList />
       </TabsContent>
-    </>
+      
+      <TabsContent value="users" className="mt-6">
+        <UserManagement />
+      </TabsContent>
+      
+      <TabsContent value="templates" className="mt-6">
+        <TemplatesList />
+      </TabsContent>
+      
+      <TabsContent value="config" className="mt-6">
+        <ConfigurationList />
+      </TabsContent>
+    </Tabs>
   );
 };
-
-export default AdminTabsContent;
