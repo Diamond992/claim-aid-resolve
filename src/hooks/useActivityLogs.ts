@@ -11,7 +11,7 @@ export const useActivityLogs = () => {
   const fetchActivityLogs = async () => {
     try {
       const { data, error } = await supabase
-        .from('activity_logs' as any)
+        .from('activity_logs')
         .select(`
           *,
           profiles (

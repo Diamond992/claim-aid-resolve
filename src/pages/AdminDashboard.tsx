@@ -63,31 +63,18 @@ const AdminDashboard = () => {
         <AdminStatsCards stats={stats} />
         
         <div className="mt-8">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-8">
-              <TabsTrigger value="courriers">Courriers</TabsTrigger>
-              <TabsTrigger value="echeances">Échéances</TabsTrigger>
-              <TabsTrigger value="payments">Paiements</TabsTrigger>
-              <TabsTrigger value="templates">Modèles</TabsTrigger>
-              <TabsTrigger value="configuration">Config</TabsTrigger>
-              <TabsTrigger value="users">Utilisateurs</TabsTrigger>
-              <TabsTrigger value="audit">Audit</TabsTrigger>
-              <TabsTrigger value="activity">Activité</TabsTrigger>
-            </TabsList>
-            
-            <AdminTabsContent
-              isLoading={isLoading}
-              courriers={courriers}
-              echeances={echeances}
-              payments={payments}
-              dossiers={dossiers}
-              onCourrierValidate={(id) => handleCourrierStatusUpdate(id, 'valide_pret_envoi')}
-              onCourrierReject={(id) => handleCourrierStatusUpdate(id, 'rejete')}
-              onEcheanceStatusUpdate={handleEcheanceStatusUpdate}
-              onPaymentStatusUpdate={handlePaymentStatusUpdate}
-              onCreateEcheance={handleCreateEcheance}
-            />
-          </Tabs>
+          <AdminTabsContent
+            courriers={courriers}
+            echeances={echeances}
+            payments={payments}
+            dossiers={dossiers}
+            isLoading={isLoading}
+            onCourrierValidate={(id) => handleCourrierStatusUpdate(id, 'valide_pret_envoi')}
+            onCourrierReject={(id) => handleCourrierStatusUpdate(id, 'rejete')}
+            onEcheanceStatusUpdate={handleEcheanceStatusUpdate}
+            onPaymentStatusUpdate={handlePaymentStatusUpdate}
+            onCreateEcheance={handleCreateEcheance}
+          />
         </div>
       </div>
     </div>

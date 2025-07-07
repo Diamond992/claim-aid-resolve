@@ -14,9 +14,31 @@ interface AdminTabsContentProps {
   echeances: any[];
   payments: any[];
   dossiers: any[];
+  isLoading: boolean;
+  onCourrierValidate: (id: string) => void;
+  onCourrierReject: (id: string) => void;
+  onEcheanceStatusUpdate: (id: string, status: 'actif' | 'traite' | 'expire') => void;
+  onPaymentStatusUpdate: (id: string, status: 'pending' | 'succeeded' | 'failed' | 'canceled' | 'refunded') => void;
+  onCreateEcheance: (echeanceData: {
+    dossier_id: string;
+    type_echeance: 'reponse_reclamation' | 'delai_mediation' | 'prescription_biennale';
+    date_limite: string;
+    description?: string;
+  }) => void;
 }
 
-export const AdminTabsContent = ({ courriers, echeances, payments, dossiers }: AdminTabsContentProps) => {
+export const AdminTabsContent = ({ 
+  courriers, 
+  echeances, 
+  payments, 
+  dossiers, 
+  isLoading,
+  onCourrierValidate,
+  onCourrierReject,
+  onEcheanceStatusUpdate,
+  onPaymentStatusUpdate,
+  onCreateEcheance
+}: AdminTabsContentProps) => {
   return (
     <Tabs defaultValue="courriers" className="w-full">
       <TabsList className="grid w-full grid-cols-8">
@@ -31,15 +53,30 @@ export const AdminTabsContent = ({ courriers, echeances, payments, dossiers }: A
       </TabsList>
       
       <TabsContent value="courriers" className="mt-6">
-        <CourriersList courriers={courriers} />
+        <CourriersList 
+          courriers={courriers} 
+          isLoading={isLoading}
+          onValidate={onCourrierValidate}
+          onReject={onCourrierReject}
+        />
       </TabsContent>
       
       <TabsContent value="echeances" className="mt-6">
-        <EcheancesList echeances={echeances} dossiers={dossiers} />
+        <EcheancesList 
+          echeances={echeances} 
+          dossiers={dossiers}
+          isLoading={isLoading}
+          onStatusUpdate={onEcheanceStatusUpdate}
+          onCreateEcheance={onCreateEcheance}
+        />
       </TabsContent>
       
       <TabsContent value="payments" className="mt-6">
-        <PaymentsList payments={payments} />
+        <PaymentsList 
+          payments={payments}
+          isLoading={isLoading}
+          onStatusUpdate={onPaymentStatusUpdate}
+        />
       </TabsContent>
       
       <TabsContent value="webhooks" className="mt-6">
@@ -55,7 +92,7 @@ export const AdminTabsContent = ({ courriers, echeances, payments, dossiers }: A
       </TabsContent>
       
       <TabsContent value="templates" className="mt-6">
-        <TemplatesList />
+        <TemplatesList templates={[]} />
       </TabsContent>
       
       <TabsContent value="config" className="mt-6">
