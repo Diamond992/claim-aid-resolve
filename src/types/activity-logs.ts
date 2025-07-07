@@ -1,16 +1,14 @@
 
 export interface ActivityLog {
   id: string;
-  user_id: string;
+  admin_user_id: string | null;
   action: string;
-  table_name: string;
-  record_id?: string;
-  old_values?: any;
-  new_values?: any;
-  created_at: string;
+  target_user_id: string | null;
+  details: any;
+  created_at: string | null;
   profiles: {
     first_name: string;
     last_name: string;
     email: string;
-  };
+  } | null;
 }

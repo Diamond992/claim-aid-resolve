@@ -11,32 +11,17 @@ const ActivityLogsList = () => {
   const { logs, isLoading } = useActivityLogs();
   const [searchTerm, setSearchTerm] = useState("");
   const [actionFilter, setActionFilter] = useState("all");
-  const [tableFilter, setTableFilter] = useState("all");
-
-  const getTableLabel = (tableName: string) => {
-    const labels: { [key: string]: string } = {
-      'dossiers': 'Dossiers',
-      'courriers_projets': 'Courriers',
-      'paiements': 'Paiements',
-      'documents': 'Documents',
-      'echeances': 'Échéances'
-    };
-    return labels[tableName] || tableName;
-  };
 
   const filteredLogs = logs.filter(log => {
-    const userName = `${log.profiles?.first_name || ''} ${log.profiles?.last_name || ''}`.toLowerCase();
+    const userName = log.profiles ? `${log.profiles.first_name || ''} ${log.profiles.last_name || ''}`.toLowerCase() : '';
     const userEmail = log.profiles?.email?.toLowerCase() || '';
-    const tableName = getTableLabel(log.table_name).toLowerCase();
     
     const matchesSearch = userName.includes(searchTerm.toLowerCase()) || 
-                         userEmail.includes(searchTerm.toLowerCase()) ||
-                         tableName.includes(searchTerm.toLowerCase());
+                         userEmail.includes(searchTerm.toLowerCase());
     
     const matchesAction = actionFilter === "all" || log.action === actionFilter;
-    const matchesTable = tableFilter === "all" || log.table_name === tableFilter;
     
-    return matchesSearch && matchesAction && matchesTable;
+    return matchesSearch && matchesAction;
   });
 
   if (isLoading) {
@@ -56,10 +41,10 @@ const ActivityLogsList = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Activity className="h-5 w-5" />
-            Logs d'Activité
+            Logs d'Activité Admin
           </CardTitle>
           <CardDescription>
-            Historique de toutes les actions sur les données
+            Historique des actions administratives
           </CardDescription>
         </CardHeader>
         
@@ -69,8 +54,6 @@ const ActivityLogsList = () => {
             setSearchTerm={setSearchTerm}
             actionFilter={actionFilter}
             setActionFilter={setActionFilter}
-            tableFilter={tableFilter}
-            setTableFilter={setTableFilter}
             logs={logs}
           />
 

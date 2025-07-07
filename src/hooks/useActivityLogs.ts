@@ -11,10 +11,10 @@ export const useActivityLogs = () => {
   const fetchActivityLogs = async () => {
     try {
       const { data, error } = await supabase
-        .from('activity_logs')
+        .from('admin_audit_log')
         .select(`
           *,
-          profiles (
+          profiles!admin_audit_log_target_user_id_fkey (
             first_name,
             last_name,
             email
