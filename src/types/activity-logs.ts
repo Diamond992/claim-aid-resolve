@@ -1,14 +1,14 @@
 
 export interface ActivityLog {
   id: string;
-  admin_user_id: string | null;
   action: string;
+  admin_user_id: string | null;
   target_user_id: string | null;
-  details: any;
   created_at: string | null;
-  profiles: {
-    first_name: string;
-    last_name: string;
-    email: string;
+  details: any; // Json type
+  profiles?: {
+    first_name: string | null;
+    last_name: string | null;
+    email: string | null;
   } | null;
 }
