@@ -32,6 +32,7 @@ export const useAdminMutations = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-courriers'] });
+      queryClient.invalidateQueries({ queryKey: ['webhook-logs'] });
       toast.success("Statut du courrier mis à jour");
     },
     onError: (error) => {
@@ -55,6 +56,7 @@ export const useAdminMutations = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-echeances'] });
+      queryClient.invalidateQueries({ queryKey: ['webhook-logs'] });
       toast.success("Statut de l'échéance mis à jour");
     },
     onError: (error) => {
@@ -102,6 +104,7 @@ export const useAdminMutations = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-echeances'] });
+      queryClient.invalidateQueries({ queryKey: ['webhook-logs'] });
       toast.success("Échéance créée avec succès");
     },
     onError: (error) => {
@@ -110,10 +113,37 @@ export const useAdminMutations = () => {
     },
   });
 
+  // Test webhook mutation
+  const testWebhookMutation = useMutation({
+    mutationFn: async ({ webhook_url, test_payload }: { webhook_url: string; test_payload: any }) => {
+      const { data, error } = await supabase.rpc('notify_make_webhook', {
+        webhook_url,
+        payload_json: test_payload,
+        max_retries: 1
+      });
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (success) => {
+      queryClient.invalidateQueries({ queryKey: ['webhook-logs'] });
+      if (success) {
+        toast.success("Test webhook envoyé avec succès");
+      } else {
+        toast.error("Échec du test webhook - vérifiez les logs");
+      }
+    },
+    onError: (error) => {
+      console.error('Error testing webhook:', error);
+      toast.error("Erreur lors du test du webhook");
+    },
+  });
+
   return {
     updateCourrierMutation,
     updateEcheanceStatusMutation,
     updatePaymentStatusMutation,
     createEcheanceMutation,
+    testWebhookMutation,
   };
 };
