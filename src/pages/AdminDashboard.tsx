@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import AdminHeader from "@/components/admin/AdminHeader";
 import AdminStatsCards from "@/components/admin/AdminStatsCards";
-import AdminTabsContent from "@/components/admin/AdminTabsContent";
+import { AdminTabsContent } from "@/components/admin/AdminTabsContent";
 import { useAdminData } from "@/hooks/useAdminData";
 import { useAdminMutations } from "@/hooks/useAdminMutations";
 import { useAuth } from "@/hooks/useAuth";

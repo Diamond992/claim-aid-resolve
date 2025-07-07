@@ -1,13 +1,13 @@
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CourriersList } from "./CourriersList";
-import { EcheancesList } from "./EcheancesList";
-import { PaymentsList } from "./PaymentsList";
+import CourriersList from "./CourriersList";
+import EcheancesList from "./EcheancesList";
+import PaymentsList from "./PaymentsList";
 import { WebhookLogsList } from "./WebhookLogsList";
 import ActivityLogsList from "./ActivityLogsList";
-import { UserManagement } from "./UserManagement";
-import { TemplatesList } from "./TemplatesList";
-import { ConfigurationList } from "./ConfigurationList";
+import UserManagement from "./UserManagement";
+import TemplatesList from "./TemplatesList";
+import ConfigurationList from "./ConfigurationList";
 
 interface AdminTabsContentProps {
   courriers: any[];
@@ -64,3 +64,5 @@ export const AdminTabsContent = ({ courriers, echeances, payments, dossiers }: A
     </Tabs>
   );
 };
+
+export default AdminTabsContent;
