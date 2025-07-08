@@ -49,13 +49,11 @@ export const useUserRole = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const isAdmin = userRole === 'admin' || userRole === 'super_admin';
-  const isSuperAdmin = userRole === 'super_admin';
+  const isAdmin = userRole === 'admin';
 
   return {
     userRole,
     isAdmin,
-    isSuperAdmin,
     isLoading
   };
 };

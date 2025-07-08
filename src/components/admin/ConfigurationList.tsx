@@ -11,7 +11,7 @@ import { useUserRole } from "@/hooks/useUserRole";
 
 const ConfigurationList = () => {
   const { configurations, isLoading, updateConfiguration, isUpdating } = useConfiguration();
-  const { isSuperAdmin } = useUserRole();
+  const { isAdmin } = useUserRole();
   const [editingValues, setEditingValues] = useState<Record<string, string>>({});
 
   const handleInputChange = (id: string, value: string) => {
@@ -53,14 +53,14 @@ const ConfigurationList = () => {
     );
   }
 
-  if (!isSuperAdmin) {
+  if (!isAdmin) {
     return (
       <Card>
         <CardContent className="p-8 text-center">
           <Lock className="h-12 w-12 mx-auto mb-4 text-gray-400" />
           <h3 className="text-lg font-semibold mb-2">Accès Restreint</h3>
           <p className="text-gray-600">
-            Seuls les super administrateurs peuvent accéder à la configuration système.
+            Seuls les administrateurs peuvent accéder à la configuration système.
           </p>
         </CardContent>
       </Card>

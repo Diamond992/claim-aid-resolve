@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { UserPlus, Mail, Shield, User, Search, Crown } from "lucide-react";
+import { UserPlus, Mail, Shield, User, Search } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -23,7 +22,7 @@ const UserManagement = () => {
   const [inviteRole, setInviteRole] = useState<AppRole>("user");
   const [isInviting, setIsInviting] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const { isSuperAdmin } = useUserRole();
+  const { isAdmin } = useUserRole();
 
   useEffect(() => {
     fetchUsers();
@@ -108,8 +107,6 @@ const UserManagement = () => {
 
   const getRoleBadgeVariant = (role: AppRole) => {
     switch (role) {
-      case 'super_admin':
-        return 'destructive';
       case 'admin':
         return 'default';
       default:
@@ -119,8 +116,6 @@ const UserManagement = () => {
 
   const getRoleIcon = (role: AppRole) => {
     switch (role) {
-      case 'super_admin':
-        return <Crown className="h-3 w-3" />;
       case 'admin':
         return <Shield className="h-3 w-3" />;
       default:
@@ -146,7 +141,7 @@ const UserManagement = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">Gestion des Utilisateurs</h2>
-        {isSuperAdmin && (
+        {isAdmin && (
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
               <Button className="bg-blue-600 hover:bg-blue-700">
@@ -181,7 +176,6 @@ const UserManagement = () => {
                     <SelectContent>
                       <SelectItem value="user">Utilisateur</SelectItem>
                       <SelectItem value="admin">Administrateur</SelectItem>
-                      <SelectItem value="super_admin">Super Administrateur</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -243,10 +237,9 @@ const UserManagement = () => {
                     className="flex items-center gap-1"
                   >
                     {getRoleIcon(user.user_roles?.[0]?.role || 'user')}
-                    {user.user_roles?.[0]?.role === 'super_admin' ? 'Super Admin' : 
-                     user.user_roles?.[0]?.role === 'admin' ? 'Admin' : 'Utilisateur'}
+                    {user.user_roles?.[0]?.role === 'admin' ? 'Admin' : 'Utilisateur'}
                   </Badge>
-                  {isSuperAdmin && (
+                  {isAdmin && (
                     <Select 
                       value={user.user_roles?.[0]?.role || 'user'}
                       onValueChange={(newRole: AppRole) => handleChangeUserRole(user.id, newRole)}
@@ -257,7 +250,6 @@ const UserManagement = () => {
                       <SelectContent>
                         <SelectItem value="user">Utilisateur</SelectItem>
                         <SelectItem value="admin">Admin</SelectItem>
-                        <SelectItem value="super_admin">Super Admin</SelectItem>
                       </SelectContent>
                     </Select>
                   )}
