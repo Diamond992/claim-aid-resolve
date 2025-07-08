@@ -6,17 +6,21 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { UserPlus, Mail, Shield, User, Search } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { UserPlus, Mail, Shield, User, Search, Crown } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useUserRole } from "@/hooks/useUserRole";
 
 const UserManagement = () => {
   const [users, setUsers] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState<string>("user");
   const [isInviting, setIsInviting] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const { isSuperAdmin } = useUserRole();
 
   useEffect(() => {
     fetchUsers();
@@ -60,11 +64,12 @@ const UserManagement = () => {
       // Log the admin action
       await supabase.rpc('log_admin_action', {
         action_type: 'ADMIN_INVITE_CREATED',
-        action_details: { email: inviteEmail, invite_code: data }
+        action_details: { email: inviteEmail, invite_code: data, role: inviteRole }
       });
 
       toast.success(`Invitation créée ! Partagez ce lien : ${inviteUrl}`);
       setInviteEmail("");
+      setInviteRole("user");
       setDialogOpen(false);
     } catch (error) {
       console.error('Error creating invite:', error);
@@ -74,9 +79,7 @@ const UserManagement = () => {
     }
   };
 
-  const handlePromoteUser = async (userId: string, currentRole: string) => {
-    const newRole = currentRole === 'admin' ? 'user' : 'admin';
-    
+  const handleChangeUserRole = async (userId: string, newRole: string) => {
     try {
       const { error } = await supabase
         .from('user_roles')
@@ -89,14 +92,36 @@ const UserManagement = () => {
       await supabase.rpc('log_admin_action', {
         action_type: 'USER_ROLE_CHANGED',
         target_user: userId,
-        action_details: { from_role: currentRole, to_role: newRole }
+        action_details: { new_role: newRole }
       });
 
-      toast.success(`Utilisateur ${newRole === 'admin' ? 'promu' : 'rétrogradé'} avec succès`);
+      toast.success(`Rôle utilisateur mis à jour avec succès`);
       fetchUsers();
     } catch (error) {
       console.error('Error updating user role:', error);
       toast.error("Erreur lors de la modification du rôle");
+    }
+  };
+
+  const getRoleBadgeVariant = (role: string) => {
+    switch (role) {
+      case 'super_admin':
+        return 'destructive';
+      case 'admin':
+        return 'default';
+      default:
+        return 'secondary';
+    }
+  };
+
+  const getRoleIcon = (role: string) => {
+    switch (role) {
+      case 'super_admin':
+        return <Crown className="h-3 w-3" />;
+      case 'admin':
+        return <Shield className="h-3 w-3" />;
+      default:
+        return <User className="h-3 w-3" />;
     }
   };
 
@@ -118,41 +143,56 @@ const UserManagement = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">Gestion des Utilisateurs</h2>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-blue-600 hover:bg-blue-700">
-              <UserPlus className="h-4 w-4 mr-2" />
-              Inviter un Admin
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Inviter un Administrateur</DialogTitle>
-              <DialogDescription>
-                Créez une invitation pour qu'un nouvel utilisateur devienne administrateur.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="admin@example.com"
-                  value={inviteEmail}
-                  onChange={(e) => setInviteEmail(e.target.value)}
-                />
-              </div>
-              <Button 
-                onClick={handleInviteAdmin}
-                disabled={isInviting}
-                className="w-full"
-              >
-                {isInviting ? "Création..." : "Créer l'invitation"}
+        {isSuperAdmin && (
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-blue-600 hover:bg-blue-700">
+                <UserPlus className="h-4 w-4 mr-2" />
+                Inviter un Utilisateur
               </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Inviter un Utilisateur</DialogTitle>
+                <DialogDescription>
+                  Créez une invitation pour qu'un nouvel utilisateur rejoigne la plateforme.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="utilisateur@example.com"
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="role">Rôle</Label>
+                  <Select value={inviteRole} onValueChange={setInviteRole}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sélectionner un rôle" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="user">Utilisateur</SelectItem>
+                      <SelectItem value="admin">Administrateur</SelectItem>
+                      <SelectItem value="super_admin">Super Administrateur</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button 
+                  onClick={handleInviteAdmin}
+                  disabled={isInviting}
+                  className="w-full"
+                >
+                  {isInviting ? "Création..." : "Créer l'invitation"}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
 
       <Card>
@@ -188,59 +228,42 @@ const UserManagement = () => {
                     <h3 className="font-semibold">
                       {user.first_name} {user.last_name}
                     </h3>
-                    <p className="text-sm text-gray-600 flex items-center">
-                      <Mail className="h-3 w-3 mr-1" />
+                    <p className="text-sm text-gray-500 flex items-center gap-1">
+                      <Mail className="h-3 w-3" />
                       {user.email}
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center space-x-2">
                   <Badge 
-                    className={
-                      user.user_roles?.[0]?.role === 'admin' 
-                        ? "bg-red-500 text-white" 
-                        : "bg-green-500 text-white"
-                    }
+                    variant={getRoleBadgeVariant(user.user_roles?.[0]?.role || 'user')}
+                    className="flex items-center gap-1"
                   >
-                    {user.user_roles?.[0]?.role === 'admin' ? (
-                      <>
-                        <Shield className="h-3 w-3 mr-1" />
-                        Admin
-                      </>
-                    ) : (
-                      <>
-                        <User className="h-3 w-3 mr-1" />
-                        Utilisateur
-                      </>
-                    )}
+                    {getRoleIcon(user.user_roles?.[0]?.role || 'user')}
+                    {user.user_roles?.[0]?.role === 'super_admin' ? 'Super Admin' : 
+                     user.user_roles?.[0]?.role === 'admin' ? 'Admin' : 'Utilisateur'}
                   </Badge>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handlePromoteUser(user.id, user.user_roles?.[0]?.role || 'user')}
-                  >
-                    {user.user_roles?.[0]?.role === 'admin' ? 'Rétrograder' : 'Promouvoir'}
-                  </Button>
+                  {isSuperAdmin && (
+                    <Select 
+                      value={user.user_roles?.[0]?.role || 'user'}
+                      onValueChange={(newRole) => handleChangeUserRole(user.id, newRole)}
+                    >
+                      <SelectTrigger className="w-32">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="user">Utilisateur</SelectItem>
+                        <SelectItem value="admin">Admin</SelectItem>
+                        <SelectItem value="super_admin">Super Admin</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
               </div>
             </CardContent>
           </Card>
         ))}
       </div>
-
-      {filteredUsers.length === 0 && (
-        <Card className="text-center py-8">
-          <CardContent>
-            <User className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              Aucun utilisateur trouvé
-            </h3>
-            <p className="text-gray-600">
-              Aucun utilisateur ne correspond à votre recherche.
-            </p>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 };

@@ -7,17 +7,34 @@ import { AdminTabsContent } from "@/components/admin/AdminTabsContent";
 import { useAdminData } from "@/hooks/useAdminData";
 import { useAdminMutations } from "@/hooks/useAdminMutations";
 import { useAuth } from "@/hooks/useAuth";
+import { useUserRole } from "@/hooks/useUserRole";
+import { Navigate } from "react-router-dom";
 
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState("courriers");
   const { courriers, echeances, payments, dossiers, isLoading } = useAdminData();
   const { user, signOut } = useAuth();
+  const { isAdmin, isLoading: roleLoading } = useUserRole();
   const {
     updateCourrierMutation,
     updateEcheanceStatusMutation,
     updatePaymentStatusMutation,
     createEcheanceMutation,
   } = useAdminMutations();
+
+  // Redirect if not admin
+  if (!roleLoading && !isAdmin) {
+    return <Navigate to="/" replace />;
+  }
+
+  // Show loading while checking role
+  if (roleLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div>Vérification des permissions...</div>
+      </div>
+    );
+  }
 
   const handleCourrierStatusUpdate = (id: string, statut: string, adminId?: string) => {
     updateCourrierMutation.mutate({ id, statut, admin_validateur: adminId });
