@@ -11,13 +11,16 @@ import { UserPlus, Mail, Shield, User, Search, Crown } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserRole } from "@/hooks/useUserRole";
+import { Database } from "@/integrations/supabase/types";
+
+type AppRole = Database["public"]["Enums"]["app_role"];
 
 const UserManagement = () => {
   const [users, setUsers] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState<string>("user");
+  const [inviteRole, setInviteRole] = useState<AppRole>("user");
   const [isInviting, setIsInviting] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const { isSuperAdmin } = useUserRole();
@@ -79,7 +82,7 @@ const UserManagement = () => {
     }
   };
 
-  const handleChangeUserRole = async (userId: string, newRole: string) => {
+  const handleChangeUserRole = async (userId: string, newRole: AppRole) => {
     try {
       const { error } = await supabase
         .from('user_roles')
@@ -103,7 +106,7 @@ const UserManagement = () => {
     }
   };
 
-  const getRoleBadgeVariant = (role: string) => {
+  const getRoleBadgeVariant = (role: AppRole) => {
     switch (role) {
       case 'super_admin':
         return 'destructive';
@@ -114,7 +117,7 @@ const UserManagement = () => {
     }
   };
 
-  const getRoleIcon = (role: string) => {
+  const getRoleIcon = (role: AppRole) => {
     switch (role) {
       case 'super_admin':
         return <Crown className="h-3 w-3" />;
@@ -171,7 +174,7 @@ const UserManagement = () => {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="role">Rôle</Label>
-                  <Select value={inviteRole} onValueChange={setInviteRole}>
+                  <Select value={inviteRole} onValueChange={(value: AppRole) => setInviteRole(value)}>
                     <SelectTrigger>
                       <SelectValue placeholder="Sélectionner un rôle" />
                     </SelectTrigger>
@@ -246,7 +249,7 @@ const UserManagement = () => {
                   {isSuperAdmin && (
                     <Select 
                       value={user.user_roles?.[0]?.role || 'user'}
-                      onValueChange={(newRole) => handleChangeUserRole(user.id, newRole)}
+                      onValueChange={(newRole: AppRole) => handleChangeUserRole(user.id, newRole)}
                     >
                       <SelectTrigger className="w-32">
                         <SelectValue />
