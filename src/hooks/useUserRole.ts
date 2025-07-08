@@ -18,14 +18,18 @@ export const useUserRole = () => {
           return;
         }
 
-        // Utiliser la fonction RPC pour obtenir le rôle
-        const { data: role, error } = await supabase.rpc('get_user_role');
+        // Récupérer le rôle directement depuis la table user_roles
+        const { data: roleData, error } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', user.id)
+          .single();
 
         if (error) {
           console.error('Error fetching user role:', error);
           setUserRole('user'); // Valeur par défaut
         } else {
-          setUserRole((role as UserRole) || 'user');
+          setUserRole((roleData?.role as UserRole) || 'user');
         }
       } catch (error) {
         console.error('Error in fetchUserRole:', error);
