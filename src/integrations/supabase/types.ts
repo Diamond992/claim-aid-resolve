@@ -531,15 +531,39 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_access_dossier: {
+        Args: { dossier_id: string; user_id: string }
+        Returns: boolean
+      }
+      decrypt_sensitive_data: {
+        Args: { encrypted_data: string }
+        Returns: string
+      }
+      encrypt_sensitive_data: {
+        Args: { data: string }
+        Returns: string
+      }
       generate_admin_invite: {
         Args: { admin_email: string }
         Returns: string
+      }
+      get_user_role: {
+        Args: { user_id: string }
+        Returns: Database["public"]["Enums"]["app_role"]
       }
       has_role: {
         Args: {
           _user_id: string
           _role: Database["public"]["Enums"]["app_role"]
         }
+        Returns: boolean
+      }
+      is_admin: {
+        Args: { user_id?: string }
+        Returns: boolean
+      }
+      is_owner: {
+        Args: { dossier_id: string; user_id: string }
         Returns: boolean
       }
       log_admin_action: {
