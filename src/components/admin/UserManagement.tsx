@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,8 +15,18 @@ import { Database } from "@/integrations/supabase/types";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
 
+interface UserWithRole {
+  id: string;
+  email: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+  role: AppRole | null;
+}
+
 const UserManagement = () => {
-  const [users, setUsers] = useState<any[]>([]);
+  const [users, setUsers] = useState<UserWithRole[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [inviteEmail, setInviteEmail] = useState("");
@@ -30,15 +41,42 @@ const UserManagement = () => {
 
   const fetchUsers = async () => {
     try {
+      console.log('Fetching users with explicit join...');
+      
       const { data, error } = await supabase
         .from('profiles')
         .select(`
-          *,
-          user_roles (role)
+          id,
+          email,
+          first_name,
+          last_name,
+          created_at,
+          updated_at,
+          user_roles!fk_user_roles_user_id (
+            role
+          )
         `);
 
-      if (error) throw error;
-      setUsers(data || []);
+      if (error) {
+        console.error('Error fetching users:', error);
+        throw error;
+      }
+
+      console.log('Raw data from Supabase:', data);
+
+      // Transform the data to flatten the role
+      const transformedUsers: UserWithRole[] = (data || []).map(user => ({
+        id: user.id,
+        email: user.email,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        created_at: user.created_at,
+        updated_at: user.updated_at,
+        role: user.user_roles?.[0]?.role || null
+      }));
+
+      console.log('Transformed users:', transformedUsers);
+      setUsers(transformedUsers);
     } catch (error) {
       console.error('Error fetching users:', error);
       toast.error("Erreur lors du chargement des utilisateurs");
@@ -53,29 +91,47 @@ const UserManagement = () => {
       return;
     }
 
+    if (!inviteEmail.includes('@')) {
+      toast.error("Veuillez saisir un email valide");
+      return;
+    }
+
     setIsInviting(true);
     try {
+      console.log('Creating admin invitation for:', inviteEmail);
+      
       const { data, error } = await supabase.rpc('generate_admin_invite', {
         admin_email: inviteEmail
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error creating invite:', error);
+        throw error;
+      }
 
       const inviteUrl = `${window.location.origin}/admin/register?code=${data}`;
       
       // Log the admin action
       await supabase.rpc('log_admin_action', {
         action_type: 'ADMIN_INVITE_CREATED',
-        action_details: { email: inviteEmail, invite_code: data, role: inviteRole }
+        action_details: { 
+          email: inviteEmail, 
+          invite_code: data, 
+          role: inviteRole 
+        }
       });
 
-      toast.success(`Invitation créée ! Partagez ce lien : ${inviteUrl}`);
+      console.log('Invitation created successfully:', inviteUrl);
+      toast.success(`Invitation créée ! Partagez ce lien : ${inviteUrl}`, {
+        duration: 10000
+      });
+      
       setInviteEmail("");
       setInviteRole("user");
       setDialogOpen(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating invite:', error);
-      toast.error("Erreur lors de la création de l'invitation");
+      toast.error(error.message || "Erreur lors de la création de l'invitation");
     } finally {
       setIsInviting(false);
     }
@@ -83,12 +139,21 @@ const UserManagement = () => {
 
   const handleChangeUserRole = async (userId: string, newRole: AppRole) => {
     try {
+      console.log('Changing user role:', { userId, newRole });
+      
       const { error } = await supabase
         .from('user_roles')
-        .update({ role: newRole })
-        .eq('user_id', userId);
+        .upsert({ 
+          user_id: userId, 
+          role: newRole 
+        }, {
+          onConflict: 'user_id'
+        });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error updating user role:', error);
+        throw error;
+      }
 
       // Log the admin action
       await supabase.rpc('log_admin_action', {
@@ -98,14 +163,14 @@ const UserManagement = () => {
       });
 
       toast.success(`Rôle utilisateur mis à jour avec succès`);
-      fetchUsers();
-    } catch (error) {
+      await fetchUsers(); // Refresh the user list
+    } catch (error: any) {
       console.error('Error updating user role:', error);
-      toast.error("Erreur lors de la modification du rôle");
+      toast.error(error.message || "Erreur lors de la modification du rôle");
     }
   };
 
-  const getRoleBadgeVariant = (role: AppRole) => {
+  const getRoleBadgeVariant = (role: AppRole | null) => {
     switch (role) {
       case 'admin':
         return 'default';
@@ -114,7 +179,7 @@ const UserManagement = () => {
     }
   };
 
-  const getRoleIcon = (role: AppRole) => {
+  const getRoleIcon = (role: AppRole | null) => {
     switch (role) {
       case 'admin':
         return <Shield className="h-3 w-3" />;
@@ -123,11 +188,25 @@ const UserManagement = () => {
     }
   };
 
-  const filteredUsers = users.filter(user =>
-    user.first_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.last_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.email?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const getRoleLabel = (role: AppRole | null) => {
+    switch (role) {
+      case 'admin':
+        return 'Admin';
+      case 'user':
+        return 'Utilisateur';
+      default:
+        return 'Aucun rôle';
+    }
+  };
+
+  const filteredUsers = users.filter(user => {
+    const searchLower = searchTerm.toLowerCase();
+    return (
+      user.first_name?.toLowerCase().includes(searchLower) ||
+      user.last_name?.toLowerCase().includes(searchLower) ||
+      user.email?.toLowerCase().includes(searchLower)
+    );
+  });
 
   if (isLoading) {
     return (
@@ -213,51 +292,62 @@ const UserManagement = () => {
       </Card>
 
       <div className="grid gap-4">
-        {filteredUsers.map((user) => (
-          <Card key={user.id}>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                  <div className="flex items-center justify-center w-10 h-10 bg-gray-100 rounded-full">
-                    <User className="h-5 w-5 text-gray-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold">
-                      {user.first_name} {user.last_name}
-                    </h3>
-                    <p className="text-sm text-gray-500 flex items-center gap-1">
-                      <Mail className="h-3 w-3" />
-                      {user.email}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Badge 
-                    variant={getRoleBadgeVariant(user.user_roles?.[0]?.role || 'user')}
-                    className="flex items-center gap-1"
-                  >
-                    {getRoleIcon(user.user_roles?.[0]?.role || 'user')}
-                    {user.user_roles?.[0]?.role === 'admin' ? 'Admin' : 'Utilisateur'}
-                  </Badge>
-                  {isAdmin && (
-                    <Select 
-                      value={user.user_roles?.[0]?.role || 'user'}
-                      onValueChange={(newRole: AppRole) => handleChangeUserRole(user.id, newRole)}
-                    >
-                      <SelectTrigger className="w-32">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="user">Utilisateur</SelectItem>
-                        <SelectItem value="admin">Admin</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  )}
-                </div>
-              </div>
+        {filteredUsers.length === 0 ? (
+          <Card>
+            <CardContent className="p-6 text-center text-gray-500">
+              {searchTerm ? "Aucun utilisateur trouvé pour cette recherche" : "Aucun utilisateur trouvé"}
             </CardContent>
           </Card>
-        ))}
+        ) : (
+          filteredUsers.map((user) => (
+            <Card key={user.id}>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
+                    <div className="flex items-center justify-center w-10 h-10 bg-gray-100 rounded-full">
+                      <User className="h-5 w-5 text-gray-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold">
+                        {user.first_name && user.last_name 
+                          ? `${user.first_name} ${user.last_name}`
+                          : user.email || 'Utilisateur sans nom'
+                        }
+                      </h3>
+                      <p className="text-sm text-gray-500 flex items-center gap-1">
+                        <Mail className="h-3 w-3" />
+                        {user.email || 'Email non disponible'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Badge 
+                      variant={getRoleBadgeVariant(user.role)}
+                      className="flex items-center gap-1"
+                    >
+                      {getRoleIcon(user.role)}
+                      {getRoleLabel(user.role)}
+                    </Badge>
+                    {isAdmin && (
+                      <Select 
+                        value={user.role || 'user'}
+                        onValueChange={(newRole: AppRole) => handleChangeUserRole(user.id, newRole)}
+                      >
+                        <SelectTrigger className="w-32">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="user">Utilisateur</SelectItem>
+                          <SelectItem value="admin">Admin</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))
+        )}
       </div>
     </div>
   );
