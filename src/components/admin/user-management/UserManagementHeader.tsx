@@ -3,6 +3,9 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { UserPlus } from "lucide-react";
 import { InviteUserDialog } from "./InviteUserDialog";
+import { Database } from "@/integrations/supabase/types";
+
+type AppRole = Database["public"]["Enums"]["app_role"];
 
 interface UserManagementHeaderProps {
   isAdmin: boolean;
@@ -10,8 +13,8 @@ interface UserManagementHeaderProps {
   setDialogOpen: (open: boolean) => void;
   inviteEmail: string;
   setInviteEmail: (email: string) => void;
-  inviteRole: string;
-  setInviteRole: (role: string) => void;
+  inviteRole: AppRole;
+  setInviteRole: (role: AppRole) => void;
   isInviting: boolean;
   onInviteUser: () => void;
 }
