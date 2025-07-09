@@ -12,6 +12,8 @@ import AdminRegister from "./pages/AdminRegister";
 import PaymentRedirect from "./pages/PaymentRedirect";
 import Dashboard from "./pages/Dashboard";
 import AdminDashboard from "./pages/AdminDashboard";
+import PasswordReset from "./pages/PasswordReset";
+import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -28,6 +30,8 @@ const App = () => (
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/admin/register" element={<AdminRegister />} />
+          <Route path="/password-reset" element={<PasswordReset />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/payment-redirect" element={<PaymentRedirect />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/admin" element={<AdminDashboard />} />

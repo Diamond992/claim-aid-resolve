@@ -148,7 +148,15 @@ const Login = () => {
               </Button>
             </form>
 
-            <div className="mt-6 text-center">
+            <div className="mt-6 space-y-4 text-center">
+              <p>
+                <Link 
+                  to="/password-reset" 
+                  className="text-blue-600 hover:underline font-medium"
+                >
+                  Mot de passe oublié ?
+                </Link>
+              </p>
               <p className="text-gray-600">
                 Vous n'avez pas de compte ?{" "}
                 <Link to="/register" className="text-blue-600 hover:underline font-medium">

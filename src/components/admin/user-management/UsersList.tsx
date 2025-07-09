@@ -20,9 +20,18 @@ interface UsersListProps {
   searchTerm: string;
   isAdmin: boolean;
   onChangeUserRole: (userId: string, newRole: AppRole) => void;
+  onDeleteUser: (userId: string) => void;
+  deletingUserId?: string | null;
 }
 
-export const UsersList = ({ users, searchTerm, isAdmin, onChangeUserRole }: UsersListProps) => {
+export const UsersList = ({ 
+  users, 
+  searchTerm, 
+  isAdmin, 
+  onChangeUserRole, 
+  onDeleteUser,
+  deletingUserId 
+}: UsersListProps) => {
   const filteredUsers = users.filter(user => {
     const searchLower = searchTerm.toLowerCase();
     return (
@@ -50,6 +59,8 @@ export const UsersList = ({ users, searchTerm, isAdmin, onChangeUserRole }: User
           user={user}
           isAdmin={isAdmin}
           onChangeUserRole={onChangeUserRole}
+          onDeleteUser={onDeleteUser}
+          isDeleting={deletingUserId === user.id}
         />
       ))}
     </div>

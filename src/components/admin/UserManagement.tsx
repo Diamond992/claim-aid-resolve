@@ -28,6 +28,7 @@ const UserManagement = () => {
   const [inviteRole, setInviteRole] = useState<AppRole>("user");
   const [isInviting, setIsInviting] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
   const { isAdmin } = useUserRole();
 
   useEffect(() => {
@@ -162,6 +163,102 @@ const UserManagement = () => {
     }
   };
 
+  const handleDeleteUser = async (userId: string) => {
+    setDeletingUserId(userId);
+    try {
+      console.log('Deleting user:', userId);
+
+      // First delete related data in the correct order
+      const { error: docsError } = await supabase
+        .from('documents')
+        .delete()
+        .eq('uploaded_by', userId);
+
+      if (docsError) {
+        console.error('Error deleting documents:', docsError);
+        throw docsError;
+      }
+
+      const { error: courriersError } = await supabase
+        .from('courriers_projets')
+        .delete()
+        .in('dossier_id', 
+          supabase.from('dossiers').select('id').eq('client_id', userId)
+        );
+
+      if (courriersError) {
+        console.error('Error deleting courriers:', courriersError);
+        throw courriersError;
+      }
+
+      const { error: echeancesError } = await supabase
+        .from('echeances')
+        .delete()
+        .in('dossier_id', 
+          supabase.from('dossiers').select('id').eq('client_id', userId)
+        );
+
+      if (echeancesError) {
+        console.error('Error deleting echeances:', echeancesError);
+        throw echeancesError;
+      }
+
+      const { error: paymentsError } = await supabase
+        .from('paiements')
+        .delete()
+        .eq('client_id', userId);
+
+      if (paymentsError) {
+        console.error('Error deleting payments:', paymentsError);
+        throw paymentsError;
+      }
+
+      const { error: dossiersError } = await supabase
+        .from('dossiers')
+        .delete()
+        .eq('client_id', userId);
+
+      if (dossiersError) {
+        console.error('Error deleting dossiers:', dossiersError);
+        throw dossiersError;
+      }
+
+      const { error: rolesError } = await supabase
+        .from('user_roles')
+        .delete()
+        .eq('user_id', userId);
+
+      if (rolesError) {
+        console.error('Error deleting user roles:', rolesError);
+        throw rolesError;
+      }
+
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', userId);
+
+      if (profileError) {
+        console.error('Error deleting profile:', profileError);
+        throw profileError;
+      }
+
+      await supabase.rpc('log_admin_action', {
+        action_type: 'USER_DELETED',
+        target_user: userId,
+        action_details: { deleted_at: new Date().toISOString() }
+      });
+
+      toast.success("Utilisateur supprimé avec succès");
+      await fetchUsers();
+    } catch (error: any) {
+      console.error('Error deleting user:', error);
+      toast.error(error.message || "Erreur lors de la suppression de l'utilisateur");
+    } finally {
+      setDeletingUserId(null);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -194,6 +291,8 @@ const UserManagement = () => {
         searchTerm={searchTerm}
         isAdmin={isAdmin}
         onChangeUserRole={handleChangeUserRole}
+        onDeleteUser={handleDeleteUser}
+        deletingUserId={deletingUserId}
       />
     </div>
   );

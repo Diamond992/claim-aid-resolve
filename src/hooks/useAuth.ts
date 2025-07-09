@@ -88,6 +88,42 @@ export const useAuth = () => {
     }
   };
 
+  const resetPassword = async (email: string) => {
+    try {
+      const redirectUrl = `${window.location.origin}/reset-password`;
+      
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: redirectUrl,
+      });
+
+      if (error) throw error;
+
+      toast.success("Email de récupération envoyé. Vérifiez votre boîte mail.");
+      return { error: null };
+    } catch (error: any) {
+      console.error('Error resetting password:', error);
+      toast.error(error.message || "Erreur lors de l'envoi de l'email de récupération");
+      return { error };
+    }
+  };
+
+  const updatePassword = async (newPassword: string) => {
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+
+      if (error) throw error;
+
+      toast.success("Mot de passe mis à jour avec succès");
+      return { error: null };
+    } catch (error: any) {
+      console.error('Error updating password:', error);
+      toast.error(error.message || "Erreur lors de la mise à jour du mot de passe");
+      return { error };
+    }
+  };
+
   return {
     user,
     session,
@@ -95,5 +131,7 @@ export const useAuth = () => {
     signIn,
     signUp,
     signOut,
+    resetPassword,
+    updatePassword,
   };
 };
