@@ -9,6 +9,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
+import { useQuery } from "@tanstack/react-query";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -52,39 +53,69 @@ const Dashboard = () => {
     return () => subscription.unsubscribe();
   }, [navigate]);
 
-  const mockCases = [
-    {
-      id: 1,
-      title: "Refus indemnisation automobile",
-      contractType: "Assurance Auto",
-      status: "en_cours_analyse",
-      statusLabel: "Analyse en cours",
-      progress: 60,
-      createdAt: "2024-01-15",
-      amount: "3500€",
-      description: "Refus de prise en charge suite à un accident de la route"
+  // Fetch user's dossiers
+  const { data: dossiers = [], isLoading: isLoadingDossiers } = useQuery({
+    queryKey: ['dossiers', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      
+      const { data, error } = await supabase
+        .from('dossiers')
+        .select('*')
+        .eq('client_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching dossiers:', error);
+        toast.error('Erreur lors du chargement des dossiers');
+        throw error;
+      }
+
+      return data || [];
     },
-    {
-      id: 2,
-      title: "Refus remboursement habitation",
-      contractType: "Assurance Habitation",
-      status: "en_attente_documents",
-      statusLabel: "Documents requis",
-      progress: 25,
-      createdAt: "2024-01-10",
-      amount: "8000€",
-      description: "Dégât des eaux non pris en charge"
-    }
-  ];
+    enabled: !!user?.id,
+  });
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "en_cours_analyse": return "bg-blue-500";
-      case "en_attente_documents": return "bg-orange-500";
-      case "valide": return "bg-emerald-500";
-      case "envoye": return "bg-green-500";
-      case "cloture": return "bg-gray-500";
+      case "nouveau": return "bg-blue-500";
+      case "en_cours": return "bg-orange-500";
+      case "reclamation_envoyee": return "bg-green-500";
+      case "mediation": return "bg-purple-500";
+      case "clos": return "bg-gray-500";
       default: return "bg-gray-500";
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case "nouveau": return "Nouveau";
+      case "en_cours": return "En cours";
+      case "reclamation_envoyee": return "Réclamation envoyée";
+      case "mediation": return "Médiation";
+      case "clos": return "Clos";
+      default: return status;
+    }
+  };
+
+  const getTypeLabel = (type: string) => {
+    switch (type) {
+      case "auto": return "Assurance Auto";
+      case "habitation": return "Assurance Habitation";
+      case "sante": return "Assurance Santé";
+      case "autre": return "Autre";
+      default: return type;
+    }
+  };
+
+  const calculateProgress = (status: string) => {
+    switch (status) {
+      case "nouveau": return 20;
+      case "en_cours": return 50;
+      case "reclamation_envoyee": return 75;
+      case "mediation": return 90;
+      case "clos": return 100;
+      default: return 0;
     }
   };
 
@@ -179,62 +210,77 @@ const Dashboard = () => {
             </Button>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {mockCases.map((case_) => (
-              <Card key={case_.id} className="hover:shadow-lg transition-shadow">
-                <CardHeader>
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <CardTitle className="text-lg">{case_.title}</CardTitle>
-                      <CardDescription className="mt-1">
-                        {case_.contractType} • Créé le {new Date(case_.createdAt).toLocaleDateString('fr-FR')}
-                      </CardDescription>
+          {isLoadingDossiers ? (
+            <div className="text-center py-8">
+              <div>Chargement des dossiers...</div>
+            </div>
+          ) : dossiers.length > 0 ? (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {dossiers.map((dossier) => (
+                <Card key={dossier.id} className="hover:shadow-lg transition-shadow">
+                  <CardHeader>
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <CardTitle className="text-lg">
+                          Réclamation {getTypeLabel(dossier.type_sinistre)}
+                        </CardTitle>
+                        <CardDescription className="mt-1">
+                          {dossier.compagnie_assurance} • Police {dossier.police_number}
+                        </CardDescription>
+                        <CardDescription className="text-xs text-gray-500">
+                          Créé le {new Date(dossier.created_at).toLocaleDateString('fr-FR')}
+                        </CardDescription>
+                      </div>
+                      <Badge className={`${getStatusColor(dossier.statut)} text-white`}>
+                        {getStatusLabel(dossier.statut)}
+                      </Badge>
                     </div>
-                    <Badge className={`${getStatusColor(case_.status)} text-white`}>
-                      {case_.statusLabel}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <p className="text-gray-600">{case_.description}</p>
-                  
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-500">Montant réclamé:</span>
-                    <span className="font-semibold text-emerald-600">{case_.amount}</span>
-                  </div>
-
-                  <div className="space-y-2">
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {dossier.motif_refus && (
+                      <p className="text-gray-600 text-sm">{dossier.motif_refus}</p>
+                    )}
+                    
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-500">Progression:</span>
-                      <span className="text-sm font-medium">{case_.progress}%</span>
+                      <span className="text-sm text-gray-500">Montant réclamé:</span>
+                      <span className="font-semibold text-emerald-600">
+                        {dossier.montant_refuse.toFixed(2)}€
+                      </span>
                     </div>
-                    <Progress value={case_.progress} className="h-2" />
-                  </div>
 
-                  <div className="flex space-x-2 pt-2">
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="flex-1"
-                      onClick={() => navigate(`/case/${case_.id}`)}
-                    >
-                      <Eye className="h-4 w-4 mr-2" />
-                      Voir Détails
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => navigate(`/case/${case_.id}/messages`)}
-                    >
-                      <MessageSquare className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-500">Progression:</span>
+                        <span className="text-sm font-medium">
+                          {calculateProgress(dossier.statut)}%
+                        </span>
+                      </div>
+                      <Progress value={calculateProgress(dossier.statut)} className="h-2" />
+                    </div>
 
-          {mockCases.length === 0 && (
+                    <div className="flex space-x-2 pt-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="flex-1"
+                        onClick={() => navigate(`/case/${dossier.id}`)}
+                      >
+                        <Eye className="h-4 w-4 mr-2" />
+                        Voir Détails
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => navigate(`/case/${dossier.id}/messages`)}
+                      >
+                        <MessageSquare className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
             <Card className="text-center py-12">
               <CardContent>
                 <FileText className="h-16 w-16 text-gray-300 mx-auto mb-4" />
