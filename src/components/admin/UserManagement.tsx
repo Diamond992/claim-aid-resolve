@@ -168,7 +168,20 @@ const UserManagement = () => {
     try {
       console.log('Deleting user:', userId);
 
-      // First delete related data in the correct order
+      // First, get the dossier IDs for this user
+      const { data: dossiers, error: dossiersError } = await supabase
+        .from('dossiers')
+        .select('id')
+        .eq('client_id', userId);
+
+      if (dossiersError) {
+        console.error('Error fetching dossiers:', dossiersError);
+        throw dossiersError;
+      }
+
+      const dossierIds = dossiers?.map(d => d.id) || [];
+
+      // Delete related data in the correct order
       const { error: docsError } = await supabase
         .from('documents')
         .delete()
@@ -179,28 +192,27 @@ const UserManagement = () => {
         throw docsError;
       }
 
-      const { error: courriersError } = await supabase
-        .from('courriers_projets')
-        .delete()
-        .in('dossier_id', 
-          supabase.from('dossiers').select('id').eq('client_id', userId)
-        );
+      // Delete courriers if there are dossiers
+      if (dossierIds.length > 0) {
+        const { error: courriersError } = await supabase
+          .from('courriers_projets')
+          .delete()
+          .in('dossier_id', dossierIds);
 
-      if (courriersError) {
-        console.error('Error deleting courriers:', courriersError);
-        throw courriersError;
-      }
+        if (courriersError) {
+          console.error('Error deleting courriers:', courriersError);
+          throw courriersError;
+        }
 
-      const { error: echeancesError } = await supabase
-        .from('echeances')
-        .delete()
-        .in('dossier_id', 
-          supabase.from('dossiers').select('id').eq('client_id', userId)
-        );
+        const { error: echeancesError } = await supabase
+          .from('echeances')
+          .delete()
+          .in('dossier_id', dossierIds);
 
-      if (echeancesError) {
-        console.error('Error deleting echeances:', echeancesError);
-        throw echeancesError;
+        if (echeancesError) {
+          console.error('Error deleting echeances:', echeancesError);
+          throw echeancesError;
+        }
       }
 
       const { error: paymentsError } = await supabase
@@ -213,14 +225,14 @@ const UserManagement = () => {
         throw paymentsError;
       }
 
-      const { error: dossiersError } = await supabase
+      const { error: dossiersDeleteError } = await supabase
         .from('dossiers')
         .delete()
         .eq('client_id', userId);
 
-      if (dossiersError) {
-        console.error('Error deleting dossiers:', dossiersError);
-        throw dossiersError;
+      if (dossiersDeleteError) {
+        console.error('Error deleting dossiers:', dossiersDeleteError);
+        throw dossiersDeleteError;
       }
 
       const { error: rolesError } = await supabase
