@@ -1,13 +1,14 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { User, Session } from "@supabase/supabase-js";
 import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 
 export const useAuth = () => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     // Set up auth state listener FIRST
@@ -31,15 +32,27 @@ export const useAuth = () => {
 
   const signOut = async () => {
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
-      
+      // Always clear local state first
       setUser(null);
       setSession(null);
+      
+      // Attempt to sign out from Supabase
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) {
+        console.warn('Supabase signOut warning:', error);
+        // Even if there's an error (like session not found), we still want to redirect
+        // This handles cases where the session is already expired
+      }
+      
+      // Always show success message and redirect, regardless of Supabase response
       toast.success("Déconnexion réussie");
+      navigate('/login');
     } catch (error) {
-      console.error('Error signing out:', error);
-      toast.error("Erreur lors de la déconnexion");
+      console.error('Error during signOut:', error);
+      // Still redirect and show success to user since local state is cleared
+      toast.success("Déconnexion réussie");
+      navigate('/login');
     }
   };
 

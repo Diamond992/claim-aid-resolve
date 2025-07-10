@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import AdminHeader from "@/components/admin/AdminHeader";
 import AdminStatsCards from "@/components/admin/AdminStatsCards";
@@ -8,13 +7,14 @@ import { useAdminData } from "@/hooks/useAdminData";
 import { useAdminMutations } from "@/hooks/useAdminMutations";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
-import { Navigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState("courriers");
   const { courriers, echeances, payments, dossiers, isLoading } = useAdminData();
-  const { user, signOut } = useAuth();
+  const { user, signOut, isLoading: authLoading } = useAuth();
   const { isAdmin, isLoading: roleLoading } = useUserRole();
+  const navigate = useNavigate();
   const {
     updateCourrierMutation,
     updateEcheanceStatusMutation,
@@ -22,13 +22,20 @@ const AdminDashboard = () => {
     createEcheanceMutation,
   } = useAdminMutations();
 
+  // Monitor auth state and redirect if user becomes null
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate('/login');
+    }
+  }, [user, authLoading, navigate]);
+
   // Redirect if not admin
   if (!roleLoading && !isAdmin) {
     return <Navigate to="/" replace />;
   }
 
-  // Show loading while checking role
-  if (roleLoading) {
+  // Show loading while checking role or auth
+  if (roleLoading || authLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div>Vérification des permissions...</div>
@@ -58,7 +65,7 @@ const AdminDashboard = () => {
   };
 
   const handleLogout = () => {
-    signOut();
+    signOut(); // This will now automatically redirect to login
   };
 
   // Calculate stats for AdminStatsCards

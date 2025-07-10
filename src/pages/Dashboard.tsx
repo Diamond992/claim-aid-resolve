@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,50 +7,44 @@ import { FileText, MessageSquare, Upload, User, LogOut, Plus, Eye } from "lucide
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import type { User as SupabaseUser } from "@supabase/supabase-js";
+import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const [user, setUser] = useState<SupabaseUser | null>(null);
+  const { user, signOut, isLoading: authLoading } = useAuth();
   const [profile, setProfile] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const getUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
-        navigate('/login');
+    const getProfile = async () => {
+      if (!user?.id) {
+        if (!authLoading) {
+          navigate('/login');
+        }
         return;
       }
-
-      setUser(session.user);
 
       // Get user profile
       const { data: profileData } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', session.user.id)
+        .eq('id', user.id)
         .single();
 
       setProfile(profileData);
       setIsLoading(false);
     };
 
-    getUser();
+    getProfile();
+  }, [user, authLoading, navigate]);
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_OUT') {
-        navigate('/login');
-      } else if (session) {
-        setUser(session.user);
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, [navigate]);
+  // Monitor auth state and redirect if user becomes null
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate('/login');
+    }
+  }, [user, authLoading, navigate]);
 
   // Fetch user's dossiers
   const { data: dossiers = [], isLoading: isLoadingDossiers } = useQuery({
@@ -119,14 +112,8 @@ const Dashboard = () => {
     }
   };
 
-  const handleLogout = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      toast.error("Erreur lors de la déconnexion");
-    } else {
-      toast.success("Déconnexion réussie");
-      navigate('/');
-    }
+  const handleLogout = () => {
+    signOut(); // This will now automatically redirect to login
   };
 
   if (isLoading) {
