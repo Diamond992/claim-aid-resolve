@@ -9,12 +9,14 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
+import { useClaimFormProcessor } from "@/hooks/useClaimFormProcessor";
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const { user, signOut, isLoading: authLoading } = useAuth();
   const [profile, setProfile] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const { isProcessing } = useClaimFormProcessor(user?.id);
 
   useEffect(() => {
     const getProfile = async () => {
@@ -46,8 +48,8 @@ const Dashboard = () => {
     }
   }, [user, authLoading, navigate]);
 
-  // Fetch user's dossiers
-  const { data: dossiers = [], isLoading: isLoadingDossiers } = useQuery({
+  // Fetch user's dossiers with refetch capability
+  const { data: dossiers = [], isLoading: isLoadingDossiers, refetch: refetchDossiers } = useQuery({
     queryKey: ['dossiers', user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
@@ -68,6 +70,13 @@ const Dashboard = () => {
     },
     enabled: !!user?.id,
   });
+
+  // Refetch dossiers when claim processing is complete
+  useEffect(() => {
+    if (!isProcessing && user?.id) {
+      refetchDossiers();
+    }
+  }, [isProcessing, user?.id, refetchDossiers]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -134,6 +143,12 @@ const Dashboard = () => {
           <div className="flex justify-between items-center">
             <div className="flex items-center space-x-4">
               <h1 className="text-2xl font-bold text-gray-900">Mon Tableau de Bord</h1>
+              {isProcessing && (
+                <div className="flex items-center space-x-2 text-blue-600">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                  <span className="text-sm">Traitement en cours...</span>
+                </div>
+              )}
             </div>
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
@@ -197,7 +212,7 @@ const Dashboard = () => {
             </Button>
           </div>
 
-          {isLoadingDossiers ? (
+          {isLoadingDossiers || isProcessing ? (
             <div className="text-center py-8">
               <div>Chargement des dossiers...</div>
             </div>
