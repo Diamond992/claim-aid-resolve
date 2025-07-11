@@ -48,7 +48,7 @@ export const useClaimFormProcessor = (userId?: string) => {
 
       const { data, error } = await supabase
         .from('dossiers')
-        .insert([dossierData])
+        .insert(dossierData)
         .select()
         .single();
 
@@ -72,8 +72,8 @@ export const useClaimFormProcessor = (userId?: string) => {
     }
   };
 
-  const mapContractTypeToSinistre = (contractType: string) => {
-    const mapping: Record<string, string> = {
+  const mapContractTypeToSinistre = (contractType: string): "auto" | "habitation" | "sante" | "autre" => {
+    const mapping: Record<string, "auto" | "habitation" | "sante" | "autre"> = {
       'auto': 'auto',
       'habitation': 'habitation',
       'sante': 'sante',
