@@ -16,7 +16,8 @@ const Dashboard = () => {
   const { user, signOut, isLoading: authLoading } = useAuth();
   const [profile, setProfile] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const { isProcessing } = useClaimFormProcessor(user?.id);
+  const [hasProcessedClaims, setHasProcessedClaims] = useState(false);
+  const { isProcessing, processClaimFormData } = useClaimFormProcessor(user?.id);
 
   useEffect(() => {
     const getProfile = async () => {
@@ -71,12 +72,33 @@ const Dashboard = () => {
     enabled: !!user?.id,
   });
 
-  // Refetch dossiers when claim processing is complete
+  // Process pending claims after user is authenticated and dashboard is loaded
   useEffect(() => {
-    if (!isProcessing && user?.id) {
-      refetchDossiers();
-    }
-  }, [isProcessing, user?.id, refetchDossiers]);
+    const processPendingClaims = async () => {
+      if (!user?.id || isLoading || hasProcessedClaims || isProcessing) {
+        return;
+      }
+      
+      // Check if there's pending claim data
+      const storedData = localStorage.getItem('claimFormData');
+      if (!storedData) {
+        return;
+      }
+
+      console.log('Processing pending claim for authenticated user:', user.id);
+      setHasProcessedClaims(true);
+      
+      const success = await processClaimFormData();
+      if (success) {
+        // Refetch dossiers after successful processing
+        setTimeout(() => {
+          refetchDossiers();
+        }, 500);
+      }
+    };
+
+    processPendingClaims();
+  }, [user?.id, isLoading, hasProcessedClaims, isProcessing, processClaimFormData, refetchDossiers]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
