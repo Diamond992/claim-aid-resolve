@@ -1,6 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { refreshSession } from '@/utils/sessionValidator';
+import { refreshSession, validateSession } from '@/utils/sessionValidator';
 import { mapContractTypeToSinistre } from '@/utils/contractMapper';
 
 interface ClaimFormData {
@@ -31,7 +31,7 @@ export const processClaimFormDataWithRetry = async (userId: string, maxRetries =
     try {
       console.log(`Processing attempt ${attempt}/${maxRetries}`);
       
-      // Force session refresh on every attempt to ensure JWT token is valid
+      // Force session refresh and validation on every attempt
       console.log(`Forcing session refresh on attempt ${attempt}`);
       const refreshSuccess = await refreshSession();
       if (!refreshSuccess) {
@@ -45,8 +45,21 @@ export const processClaimFormDataWithRetry = async (userId: string, maxRetries =
         return false;
       }
 
-      // Wait a moment for the refreshed token to propagate to the database
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Wait longer for the refreshed token to propagate to the database
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Verify session is valid in database context
+      const sessionValid = await validateSession(userId, false);
+      if (!sessionValid) {
+        console.error(`Session validation failed on attempt ${attempt}`);
+        if (attempt < maxRetries) {
+          console.log(`Session invalid, waiting ${attempt * 3000}ms before retry...`);
+          await new Promise(resolve => setTimeout(resolve, 3000 * attempt));
+          continue;
+        }
+        toast.error('Session invalide après rafraîchissement. Veuillez vous reconnecter.');
+        return false;
+      }
 
       const claimData: ClaimFormData = JSON.parse(storedData);
       console.log('Processing claim data:', { contractType: claimData.contractType, userId });
