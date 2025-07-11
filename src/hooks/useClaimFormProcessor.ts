@@ -158,19 +158,22 @@ export const useClaimFormProcessor = (userId?: string) => {
       try {
         console.log(`Processing attempt ${attempt}/${maxRetries}`);
         
-        // Validate session before attempting insert
-        const isSessionValid = await validateSession(attempt === 1);
-        if (!isSessionValid) {
-          console.error(`Session validation failed on attempt ${attempt}`);
+        // Force session refresh on every attempt to ensure JWT token is valid
+        console.log(`Forcing session refresh on attempt ${attempt}`);
+        const refreshSuccess = await refreshSession();
+        if (!refreshSuccess) {
+          console.error(`Session refresh failed on attempt ${attempt}`);
           if (attempt < maxRetries) {
-            // Exponential backoff with session refresh attempt
             console.log(`Waiting ${attempt * 2000}ms before retry...`);
             await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
             continue;
           }
-          toast.error('Session invalide. Veuillez vous reconnecter.');
+          toast.error('Impossible de rafraîchir la session. Veuillez vous reconnecter.');
           return false;
         }
+
+        // Wait a moment for the refreshed token to propagate to the database
+        await new Promise(resolve => setTimeout(resolve, 1000));
 
         const claimData: ClaimFormData = JSON.parse(storedData);
         console.log('Processing claim data:', { contractType: claimData.contractType, userId });
