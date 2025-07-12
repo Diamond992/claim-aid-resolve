@@ -35,6 +35,8 @@ export const DeleteUserDialog = ({
             Cette action est irréversible et supprimera définitivement :
             <br />
             <br />
+            • Le compte d'authentification (auth)
+            <br />
             • Le profil utilisateur
             <br />
             • Tous les dossiers associés
@@ -42,6 +44,9 @@ export const DeleteUserDialog = ({
             • Tous les documents et courriers
             <br />
             • L'historique des paiements
+            <br />
+            <br />
+            <strong>L'email pourra être réutilisé pour créer un nouveau compte.</strong>
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

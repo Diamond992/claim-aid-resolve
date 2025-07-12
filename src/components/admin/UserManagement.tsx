@@ -255,13 +255,38 @@ const UserManagement = () => {
         throw profileError;
       }
 
+      // CRITICAL: Delete from auth.users table to prevent "already registered" issues
+      console.log('Deleting user from auth.users:', userId);
+      const { error: authError } = await supabase.auth.admin.deleteUser(userId);
+
+      if (authError) {
+        console.error('Error deleting user from auth:', authError);
+        // Log the auth deletion failure but don't fail the whole operation
+        await supabase.rpc('log_admin_action', {
+          action_type: 'USER_AUTH_DELETE_FAILED',
+          target_user: userId,
+          action_details: { 
+            error: authError.message,
+            timestamp: new Date().toISOString()
+          }
+        });
+        toast.error(`Utilisateur supprimé partiellement. Erreur auth: ${authError.message}`);
+      } else {
+        console.log('User successfully deleted from auth.users');
+      }
+
       await supabase.rpc('log_admin_action', {
         action_type: 'USER_DELETED',
         target_user: userId,
-        action_details: { deleted_at: new Date().toISOString() }
+        action_details: { 
+          deleted_at: new Date().toISOString(),
+          auth_deleted: !authError
+        }
       });
 
-      toast.success("Utilisateur supprimé avec succès");
+      if (!authError) {
+        toast.success("Utilisateur supprimé complètement avec succès");
+      }
       await fetchUsers();
     } catch (error: any) {
       console.error('Error deleting user:', error);
