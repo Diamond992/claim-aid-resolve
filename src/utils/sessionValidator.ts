@@ -45,9 +45,44 @@ export const refreshSession = async (): Promise<boolean> => {
   }
 };
 
+// Test if auth.uid() actually works at database level
+export const verifyDatabaseAuth = async (): Promise<boolean> => {
+  try {
+    console.log('Verifying database auth.uid() availability...');
+    
+    // Test auth.uid() directly using a simple query
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('id', 'current_user_test') // This will use auth.uid() in RLS
+      .limit(1);
+    
+    if (error && error.message.includes('JWT')) {
+      console.error('JWT not available at database level:', error);
+      return false;
+    }
+    
+    // If we got here without JWT errors, auth.uid() is working
+    console.log('Database auth.uid() is available');
+    return true;
+  } catch (error) {
+    console.error('Database auth verification failed:', error);
+    return false;
+  }
+};
+
 export const checkDatabaseSession = async (userId?: string): Promise<boolean> => {
   try {
-    console.log('Checking database session...');
+    console.log('Checking database session for user:', userId);
+    
+    // First verify auth.uid() is available
+    const authAvailable = await verifyDatabaseAuth();
+    if (!authAvailable) {
+      console.error('Database auth.uid() not available');
+      return false;
+    }
+    
+    // Then check user role
     const { data, error } = await supabase.rpc('get_user_role', { user_id: userId });
     
     if (error) {

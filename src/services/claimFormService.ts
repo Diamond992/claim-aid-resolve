@@ -2,6 +2,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { refreshSession, validateSession } from '@/utils/sessionValidator';
 import { mapContractTypeToSinistre } from '@/utils/contractMapper';
+import { executeWithAuthRetry } from '@/utils/authVerification';
 
 interface ClaimFormData {
   contractType: string;
@@ -20,47 +21,41 @@ interface ClaimFormData {
   };
 }
 
-export const processClaimFormDataWithRetry = async (userId: string, maxRetries = 3): Promise<boolean> => {
+export const processClaimFormDataWithRetry = async (userId: string): Promise<boolean> => {
   const storedData = localStorage.getItem('claimFormData');
   if (!storedData) {
     console.log('No claim form data in localStorage');
     return false;
   }
 
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      console.log(`Processing attempt ${attempt}/${maxRetries}`);
-      
-      // Simple session validation without recursive refresh
-      const sessionValid = await validateSession(userId);
-      if (!sessionValid) {
-        console.error(`Session validation failed on attempt ${attempt}`);
-        if (attempt < maxRetries) {
-          console.log(`Waiting ${attempt * 1000}ms before retry...`);
-          await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
-          continue;
-        }
-        toast.error('Session invalide. Veuillez vous reconnecter.');
-        return false;
-      }
+  console.log(`🚀 Starting claim form processing for user: ${userId}`);
 
-      const claimData: ClaimFormData = JSON.parse(storedData);
-      console.log('Processing claim data:', { contractType: claimData.contractType, userId });
-      
-      // Map form data to database schema
-      const dossierData = {
-        client_id: userId,
-        type_sinistre: mapContractTypeToSinistre(claimData.contractType),
-        date_sinistre: claimData.incidentDate ? new Date(claimData.incidentDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-        refus_date: claimData.refusalDate ? new Date(claimData.refusalDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-        motif_refus: claimData.refusalReason || 'Non spécifié',
-        montant_refuse: parseFloat(claimData.claimedAmount) || 0,
-        police_number: claimData.personalInfo.policyNumber || 'Non renseigné',
-        compagnie_assurance: 'Non renseignée', // Default value as it's required
-      };
+  try {
+    // Parse claim data first
+    const claimData: ClaimFormData = JSON.parse(storedData);
+    console.log('📋 Claim data parsed:', { 
+      contractType: claimData.contractType, 
+      userId,
+      hasPersonalInfo: !!claimData.personalInfo,
+      hasIncidentDate: !!claimData.incidentDate 
+    });
+    
+    // Map form data to database schema
+    const dossierData = {
+      client_id: userId,
+      type_sinistre: mapContractTypeToSinistre(claimData.contractType),
+      date_sinistre: claimData.incidentDate ? new Date(claimData.incidentDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+      refus_date: claimData.refusalDate ? new Date(claimData.refusalDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+      motif_refus: claimData.refusalReason || 'Non spécifié',
+      montant_refuse: parseFloat(claimData.claimedAmount) || 0,
+      police_number: claimData.personalInfo.policyNumber || 'Non renseigné',
+      compagnie_assurance: 'Non renseignée', // Default value as it's required
+    };
 
-      console.log('Inserting dossier data:', dossierData);
+    console.log('💾 Prepared dossier data:', dossierData);
 
+    // Use enhanced auth retry logic for the database operation
+    const insertOperation = async () => {
       const { data, error } = await supabase
         .from('dossiers')
         .insert(dossierData)
@@ -68,55 +63,30 @@ export const processClaimFormDataWithRetry = async (userId: string, maxRetries =
         .single();
 
       if (error) {
-        console.error(`Insert error on attempt ${attempt}:`, error);
-        
-        // Handle specific RLS errors
-        if (error.message.includes('row-level security policy')) {
-          console.error('RLS policy violation details:', {
-            error: error.message,
-            userId,
-            attemptNumber: attempt,
-            sessionChecked: true
-          });
-          
-          if (attempt < maxRetries) {
-            console.log(`RLS policy violation, refreshing session and retrying in ${attempt * 2000}ms...`);
-            // Try to refresh session before retry
-            await refreshSession();
-            await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
-            continue;
-          }
-          
-          toast.error('Erreur d\'autorisation persistante. Veuillez vous déconnecter et reconnecter, puis réessayer.');
-          return false;
-        }
-        
-        // For other errors, don't retry
-        toast.error('Erreur lors de la création du dossier');
-        return false;
+        throw error;
       }
 
-      console.log('Dossier created successfully:', data);
-      
-      // Clear localStorage after successful creation
+      return data;
+    };
+
+    const result = await executeWithAuthRetry(
+      insertOperation,
+      'création du dossier',
+      3
+    );
+
+    if (result) {
+      console.log('✅ Dossier created successfully:', result);
       localStorage.removeItem('claimFormData');
-      
       toast.success('Votre dossier a été créé avec succès !');
       return true;
-
-    } catch (error) {
-      console.error(`Processing error on attempt ${attempt}:`, error);
-      
-      if (attempt < maxRetries) {
-        console.log(`Retrying in ${attempt * 1000}ms...`);
-        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
-        continue;
-      }
-      
-      toast.error('Erreur lors du traitement des données du formulaire');
-      return false;
     }
+
+    return false;
+
+  } catch (error) {
+    console.error('❌ Critical error in claim processing:', error);
+    toast.error('Erreur critique lors du traitement. Veuillez contacter le support.');
+    return false;
   }
-  
-  return false;
 };
