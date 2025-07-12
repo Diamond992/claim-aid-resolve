@@ -31,33 +31,16 @@ export const processClaimFormDataWithRetry = async (userId: string, maxRetries =
     try {
       console.log(`Processing attempt ${attempt}/${maxRetries}`);
       
-      // Force session refresh and validation on every attempt
-      console.log(`Forcing session refresh on attempt ${attempt}`);
-      const refreshSuccess = await refreshSession();
-      if (!refreshSuccess) {
-        console.error(`Session refresh failed on attempt ${attempt}`);
-        if (attempt < maxRetries) {
-          console.log(`Waiting ${attempt * 2000}ms before retry...`);
-          await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
-          continue;
-        }
-        toast.error('Impossible de rafraîchir la session. Veuillez vous reconnecter.');
-        return false;
-      }
-
-      // Wait longer for the refreshed token to propagate to the database
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Verify session is valid in database context
-      const sessionValid = await validateSession(userId, false);
+      // Simple session validation without recursive refresh
+      const sessionValid = await validateSession(userId);
       if (!sessionValid) {
         console.error(`Session validation failed on attempt ${attempt}`);
         if (attempt < maxRetries) {
-          console.log(`Session invalid, waiting ${attempt * 3000}ms before retry...`);
-          await new Promise(resolve => setTimeout(resolve, 3000 * attempt));
+          console.log(`Waiting ${attempt * 1000}ms before retry...`);
+          await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
           continue;
         }
-        toast.error('Session invalide après rafraîchissement. Veuillez vous reconnecter.');
+        toast.error('Session invalide. Veuillez vous reconnecter.');
         return false;
       }
 

@@ -63,48 +63,25 @@ export const checkDatabaseSession = async (userId?: string): Promise<boolean> =>
   }
 };
 
-export const validateSession = async (userId?: string, attemptRefresh = true): Promise<boolean> => {
+export const validateSession = async (userId?: string): Promise<boolean> => {
   try {
-    console.log('Starting session validation...');
     const { data: { session }, error } = await supabase.auth.getSession();
     
-    if (error) {
-      console.error('Session validation error:', error);
-      return false;
-    }
-    
-    if (!session) {
-      console.error('No session found');
+    if (error || !session) {
       return false;
     }
     
     if (userId && session.user.id !== userId) {
-      console.error('Session user ID mismatch:', { sessionUserId: session.user.id, expectedUserId: userId });
       return false;
     }
     
     // Validate JWT token
     if (!validateJWTToken(session)) {
-      if (attemptRefresh) {
-        console.log('JWT token invalid, attempting refresh...');
-        return await refreshSession();
-      }
       return false;
     }
     
     // Check database session context
-    const dbSessionValid = await checkDatabaseSession(userId);
-    if (!dbSessionValid && attemptRefresh) {
-      console.log('Database session invalid, attempting refresh...');
-      const refreshed = await refreshSession();
-      if (refreshed) {
-        return await checkDatabaseSession(userId);
-      }
-      return false;
-    }
-    
-    console.log('Session validated successfully for user:', userId);
-    return dbSessionValid;
+    return await checkDatabaseSession(userId);
   } catch (error) {
     console.error('Session validation failed:', error);
     return false;
