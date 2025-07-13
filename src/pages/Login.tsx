@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -7,10 +7,12 @@ import { Label } from "@/components/ui/label";
 import { Shield, Eye, EyeOff } from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 
 const Login = () => {
   const navigate = useNavigate();
+  const { signIn } = useAuth();
   const [formData, setFormData] = useState({
     email: "",
     password: ""
@@ -18,58 +20,28 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  useEffect(() => {
-    // Check if user is already logged in
-    const checkUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        // Check user role to redirect appropriately
-        const { data: roleData } = await supabase
-          .from('user_roles')
-          .select('role')
-          .eq('user_id', session.user.id)
-          .single();
-        
-        if (roleData?.role === 'admin') {
-          navigate('/admin');
-        } else {
-          navigate('/dashboard');
-        }
-      }
-    };
-    checkUser();
-  }, [navigate]);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: formData.email,
-        password: formData.password,
-      });
+      const { user, error } = await signIn(formData.email, formData.password);
 
-      if (error) {
-        toast.error(error.message);
+      if (error || !user) {
         return;
       }
 
-      if (data.user) {
-        // Check user role
-        const { data: roleData } = await supabase
-          .from('user_roles')
-          .select('role')
-          .eq('user_id', data.user.id)
-          .single();
-
-        toast.success("Connexion réussie !");
-        
-        if (roleData?.role === 'admin') {
-          navigate('/admin');
-        } else {
-          navigate('/dashboard');
-        }
+      // Check user role to redirect appropriately
+      const { data: roleData } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .single();
+      
+      if (roleData?.role === 'admin') {
+        navigate('/admin');
+      } else {
+        navigate('/dashboard');
       }
     } catch (error) {
       toast.error("Une erreur est survenue lors de la connexion");

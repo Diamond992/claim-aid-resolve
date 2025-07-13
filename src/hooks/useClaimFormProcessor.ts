@@ -1,6 +1,6 @@
 
 import { useState } from 'react';
-import { processClaimFormDataWithRetry } from '@/services/claimFormService';
+import { processClaimFormData as processClaimData } from '@/services/claimFormService';
 
 export const useClaimFormProcessor = (userId?: string) => {
   const [isProcessing, setIsProcessing] = useState(false);
@@ -12,7 +12,7 @@ export const useClaimFormProcessor = (userId?: string) => {
     }
 
     setIsProcessing(true);
-    const result = await processClaimFormDataWithRetry(userId);
+    const result = await processClaimData(userId);
     setIsProcessing(false);
     return result;
   };

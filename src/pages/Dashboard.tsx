@@ -7,7 +7,7 @@ import { FileText, MessageSquare, Upload, User, LogOut, Plus, Eye } from "lucide
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { useClaimFormProcessor } from "@/hooks/useClaimFormProcessor";
 
@@ -21,33 +21,30 @@ const Dashboard = () => {
 
   useEffect(() => {
     const getProfile = async () => {
-      if (!user?.id) {
-        if (!authLoading) {
-          navigate('/login');
+      if (!user?.id) return;
+
+      try {
+        const { data: profileData, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+
+        if (error) {
+          console.error('Error fetching profile:', error);
+          return;
         }
-        return;
+
+        setProfile(profileData);
+      } catch (error) {
+        console.error('Error fetching profile:', error);
+      } finally {
+        setIsLoading(false);
       }
-
-      // Get user profile
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-
-      setProfile(profileData);
-      setIsLoading(false);
     };
 
     getProfile();
-  }, [user, authLoading, navigate]);
-
-  // Monitor auth state and redirect if user becomes null
-  useEffect(() => {
-    if (!authLoading && !user) {
-      navigate('/login');
-    }
-  }, [user, authLoading, navigate]);
+  }, [user]);
 
   // Fetch user's dossiers with refetch capability
   const { data: dossiers = [], isLoading: isLoadingDossiers, refetch: refetchDossiers } = useQuery({
@@ -143,8 +140,9 @@ const Dashboard = () => {
     }
   };
 
-  const handleLogout = () => {
-    signOut(); // This will now automatically redirect to login
+  const handleLogout = async () => {
+    await signOut();
+    navigate('/login');
   };
 
   if (isLoading) {

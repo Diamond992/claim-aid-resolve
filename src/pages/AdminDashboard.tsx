@@ -5,7 +5,7 @@ import AdminStatsCards from "@/components/admin/AdminStatsCards";
 import { AdminTabsContent } from "@/components/admin/AdminTabsContent";
 import { useAdminData } from "@/hooks/useAdminData";
 import { useAdminMutations } from "@/hooks/useAdminMutations";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/contexts/AuthContext";
 import { useUserRole } from "@/hooks/useUserRole";
 import { Navigate, useNavigate } from "react-router-dom";
 
@@ -64,8 +64,9 @@ const AdminDashboard = () => {
     createEcheanceMutation.mutate(echeanceData);
   };
 
-  const handleLogout = () => {
-    signOut(); // This will now automatically redirect to login
+  const handleLogout = async () => {
+    await signOut();
+    navigate('/login');
   };
 
   // Calculate stats for AdminStatsCards

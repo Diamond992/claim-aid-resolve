@@ -4,6 +4,8 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
 import ClaimForm from "./pages/ClaimForm";
 import Login from "./pages/Login";
@@ -24,20 +26,64 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/claim-form" element={<ClaimForm />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/admin/register" element={<AdminRegister />} />
-          <Route path="/password-reset" element={<PasswordReset />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="/payment-redirect" element={<PaymentRedirect />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/admin" element={<AdminDashboard />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <AuthProvider>
+          <Routes>
+            {/* Public routes */}
+            <Route path="/" element={<Index />} />
+            
+            {/* Auth routes - redirect if already authenticated */}
+            <Route path="/login" element={
+              <ProtectedRoute requireAuth={false}>
+                <Login />
+              </ProtectedRoute>
+            } />
+            <Route path="/register" element={
+              <ProtectedRoute requireAuth={false}>
+                <Register />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/register" element={
+              <ProtectedRoute requireAuth={false}>
+                <AdminRegister />
+              </ProtectedRoute>
+            } />
+            <Route path="/password-reset" element={
+              <ProtectedRoute requireAuth={false}>
+                <PasswordReset />
+              </ProtectedRoute>
+            } />
+            <Route path="/reset-password" element={
+              <ProtectedRoute requireAuth={false}>
+                <ResetPassword />
+              </ProtectedRoute>
+            } />
+            
+            {/* Protected routes - require authentication */}
+            <Route path="/claim-form" element={
+              <ProtectedRoute>
+                <ClaimForm />
+              </ProtectedRoute>
+            } />
+            <Route path="/dashboard" element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin" element={
+              <ProtectedRoute>
+                <AdminDashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/payment-redirect" element={
+              <ProtectedRoute>
+                <PaymentRedirect />
+              </ProtectedRoute>
+            } />
+            
+            {/* Catch-all route */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
