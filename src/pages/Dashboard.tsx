@@ -72,7 +72,8 @@ const Dashboard = () => {
   // Process pending claims after user is authenticated and dashboard is loaded
   useEffect(() => {
     const processPendingClaims = async () => {
-      if (!user?.id || isLoading || hasProcessedClaims || isProcessing) {
+      // Attendre que l'authentification soit complète
+      if (authLoading || !user?.id || isLoading || hasProcessedClaims || isProcessing) {
         return;
       }
       
@@ -82,20 +83,32 @@ const Dashboard = () => {
         return;
       }
 
+      // Attendre un petit délai pour s'assurer que la session est bien établie
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
       console.log('Processing pending claim for authenticated user:', user.id);
       setHasProcessedClaims(true);
       
-      const success = await processClaimFormData();
-      if (success) {
-        // Refetch dossiers after successful processing
-        setTimeout(() => {
-          refetchDossiers();
-        }, 500);
+      try {
+        const success = await processClaimFormData();
+        if (success) {
+          // Refetch dossiers after successful processing
+          setTimeout(() => {
+            refetchDossiers();
+          }, 1000);
+        } else {
+          // En cas d'échec, permettre un nouvel essai
+          setHasProcessedClaims(false);
+        }
+      } catch (error) {
+        console.error('Error during claim processing:', error);
+        setHasProcessedClaims(false);
+        toast.error('Erreur lors du traitement du dossier. Veuillez réessayer.');
       }
     };
 
     processPendingClaims();
-  }, [user?.id, isLoading, hasProcessedClaims, isProcessing, processClaimFormData, refetchDossiers]);
+  }, [authLoading, user?.id, isLoading, hasProcessedClaims, isProcessing, processClaimFormData, refetchDossiers]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
