@@ -543,6 +543,10 @@ export type Database = {
         Args: { dossier_id: string; user_id: string }
         Returns: boolean
       }
+      can_access_dossier_safe: {
+        Args: { dossier_id: string; user_id: string }
+        Returns: boolean
+      }
       decrypt_sensitive_data: {
         Args: { encrypted_data: string }
         Returns: string
