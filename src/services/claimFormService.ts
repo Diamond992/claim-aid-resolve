@@ -1,8 +1,9 @@
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { mapContractTypeToSinistre } from '@/utils/contractMapper';
-import { executeWithAuthRetry, verifyAuthenticationState } from '@/utils/authVerification';
+import { executeWithAuthRetry, verifyAuthenticationState, testDatabaseAuth } from '@/utils/authVerification';
 import { runAuthDiagnostics } from '@/utils/authDiagnostics';
+import { validateSession, recoverSession, testDatabaseOperations } from '@/utils/sessionValidator';
 
 interface ClaimFormData {
   contractType: string;
@@ -38,30 +39,51 @@ export const processClaimFormData = async (userId: string): Promise<boolean> => 
   }
 
   try {
-    // Step 2: Comprehensive authentication verification
-    console.log('🔍 Verifying authentication state...');
-    const authState = await verifyAuthenticationState();
+    // Step 2: Enhanced authentication verification and recovery
+    console.log('🔍 Validating session state...');
+    const sessionValidation = await validateSession();
     
-    if (!authState.isValid) {
-      console.error('❌ Authentication verification failed:', authState.error);
+    if (!sessionValidation.isValid) {
+      console.log('⚠️ Session validation failed, attempting recovery...');
       
-      // Run comprehensive diagnostics to understand the issue
-      console.log('🔍 Running authentication diagnostics...');
+      const recoverySuccess = await recoverSession();
+      if (!recoverySuccess) {
+        console.error('❌ Session recovery failed');
+        return false;
+      }
+    }
+    
+    // Step 3: Test database operations explicitly
+    console.log('🔍 Testing database operations...');
+    const dbOperationsWork = await testDatabaseOperations();
+    
+    if (!dbOperationsWork) {
+      console.log('❌ Database operations failed, running diagnostics...');
+      
       const diagnostics = await runAuthDiagnostics();
-      
       console.log('📊 Authentication Diagnostics Results:');
       console.log('- Client Session:', diagnostics.clientSession);
       console.log('- Database Connection:', diagnostics.databaseConnection);
       console.log('- RLS Policy Test:', diagnostics.rlsPolicyTest);
       console.log('- Recommendations:', diagnostics.recommendations);
       
-      toast.error('Problème d\'authentification. Consultez la console pour plus de détails.');
+      toast.error('Problème d\'authentification avec la base de données. Consultez la console pour plus de détails.');
+      return false;
+    }
+    
+    // Step 4: Final comprehensive verification
+    console.log('🔍 Running final authentication verification...');
+    const authState = await verifyAuthenticationState();
+    
+    if (!authState.isValid) {
+      console.error('❌ Final authentication verification failed:', authState.error);
+      toast.error('Authentification non valide. Veuillez vous reconnecter.');
       return false;
     }
 
-    console.log('✅ Authentication verification passed');
+    console.log('✅ All authentication checks passed');
 
-    // Step 3: Parse and validate claim data
+    // Step 5: Parse and validate claim data
     console.log('📝 Parsing claim data...');
     const claimData: ClaimFormData = JSON.parse(storedData);
     
@@ -80,7 +102,7 @@ export const processClaimFormData = async (userId: string): Promise<boolean> => 
 
     console.log('✅ Claim data validation passed');
 
-    // Step 4: Prepare dossier data
+    // Step 6: Prepare dossier data
     const dossierData = {
       client_id: userId,
       type_sinistre: mapContractTypeToSinistre(claimData.contractType),
@@ -94,7 +116,7 @@ export const processClaimFormData = async (userId: string): Promise<boolean> => 
 
     console.log('📋 Prepared dossier data:', { ...dossierData, client_id: '[USER_ID]' });
 
-    // Step 5: Execute database operation with comprehensive retry logic
+    // Step 7: Execute database operation with enhanced retry logic
     const result = await executeWithAuthRetry(
       async () => {
         console.log('💾 Attempting to create dossier...');

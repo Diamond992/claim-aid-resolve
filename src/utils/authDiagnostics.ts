@@ -87,22 +87,35 @@ export const runAuthDiagnostics = async (): Promise<AuthDiagnostics> => {
         diagnostics.recommendations.push('Database connection exception - check configuration');
       }
 
-      // Test auth.uid() availability
+      // Test auth.uid() availability with multiple methods
       try {
-        const { data: roleData, error: roleError } = await supabase.rpc('get_user_role', { 
-          user_id: diagnostics.clientSession.userId! 
-        });
+        // Method 1: Direct RLS test
+        const { data: profileTest, error: profileError } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('id', diagnostics.clientSession.userId!)
+          .limit(1);
         
-        if (roleError) {
-          if (roleError.message.includes('auth.uid()')) {
-            diagnostics.recommendations.push('auth.uid() not available in database - JWT token not properly transmitted');
-          } else {
-            diagnostics.recommendations.push('get_user_role function failed - check database functions');
-          }
-          diagnostics.databaseConnection.error = roleError.message;
+        if (profileError && profileError.message.includes('row-level security')) {
+          diagnostics.recommendations.push('CRITICAL: auth.uid() returns null in database - JWT token not reaching database context');
+          diagnostics.databaseConnection.error = profileError.message;
         } else {
-          diagnostics.databaseConnection.authUidWorks = true;
-          console.log('✅ auth.uid() working in database');
+          // Method 2: Function call test
+          const { data: roleData, error: roleError } = await supabase.rpc('get_user_role', { 
+            user_id: diagnostics.clientSession.userId! 
+          });
+          
+          if (roleError) {
+            if (roleError.message.includes('auth.uid()')) {
+              diagnostics.recommendations.push('auth.uid() not available in database - JWT token not properly transmitted');
+            } else {
+              diagnostics.recommendations.push('get_user_role function failed - check database functions');
+            }
+            diagnostics.databaseConnection.error = roleError.message;
+          } else {
+            diagnostics.databaseConnection.authUidWorks = true;
+            console.log('✅ auth.uid() working in database');
+          }
         }
       } catch (error) {
         diagnostics.databaseConnection.error = String(error);

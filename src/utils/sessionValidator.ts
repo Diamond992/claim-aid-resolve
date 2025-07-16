@@ -1,124 +1,176 @@
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
-export const validateJWTToken = (session: any): boolean => {
-  if (!session?.access_token) return false;
-  
-  try {
-    // Decode JWT payload (basic validation)
-    const payload = JSON.parse(atob(session.access_token.split('.')[1]));
-    const now = Math.floor(Date.now() / 1000);
-    
-    // Check if token is expired
-    if (payload.exp && payload.exp < now) {
-      console.error('JWT token expired:', { exp: payload.exp, now });
-      return false;
-    }
-    
-    console.log('JWT token validated successfully');
-    return true;
-  } catch (error) {
-    console.error('JWT token validation failed:', error);
-    return false;
-  }
-};
+/**
+ * Session validation and recovery utilities
+ */
 
-export const refreshSession = async (): Promise<boolean> => {
-  try {
-    console.log('Refreshing session...');
-    const { data: { session }, error } = await supabase.auth.refreshSession();
-    
-    if (error) {
-      console.error('Session refresh error:', error);
-      return false;
-    }
-    
-    if (!session) {
-      console.error('No session after refresh');
-      return false;
-    }
-    
-    console.log('Session refreshed successfully');
-    return validateJWTToken(session);
-  } catch (error) {
-    console.error('Session refresh failed:', error);
-    return false;
-  }
-};
+export interface SessionValidationResult {
+  isValid: boolean;
+  needsRefresh: boolean;
+  shouldRelogin: boolean;
+  error?: string;
+}
 
-// Test if auth.uid() actually works at database level
-export const verifyDatabaseAuth = async (): Promise<boolean> => {
-  try {
-    console.log('Verifying database auth.uid() availability...');
-    
-    // Test auth.uid() directly using a simple query
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('id', 'current_user_test') // This will use auth.uid() in RLS
-      .limit(1);
-    
-    if (error && error.message.includes('JWT')) {
-      console.error('JWT not available at database level:', error);
-      return false;
-    }
-    
-    // If we got here without JWT errors, auth.uid() is working
-    console.log('Database auth.uid() is available');
-    return true;
-  } catch (error) {
-    console.error('Database auth verification failed:', error);
-    return false;
-  }
-};
-
-export const checkDatabaseSession = async (userId?: string): Promise<boolean> => {
-  try {
-    console.log('Checking database session for user:', userId);
-    
-    // First verify auth.uid() is available
-    const authAvailable = await verifyDatabaseAuth();
-    if (!authAvailable) {
-      console.error('Database auth.uid() not available');
-      return false;
-    }
-    
-    // Then check user role
-    const { data, error } = await supabase.rpc('get_user_role', { user_id: userId });
-    
-    if (error) {
-      console.error('Database session check error:', error);
-      return false;
-    }
-    
-    console.log('Database session check successful, user role:', data);
-    return true;
-  } catch (error) {
-    console.error('Database session check failed:', error);
-    return false;
-  }
-};
-
-export const validateSession = async (userId?: string): Promise<boolean> => {
+/**
+ * Validate current session and determine recovery strategy
+ */
+export const validateSession = async (): Promise<SessionValidationResult> => {
   try {
     const { data: { session }, error } = await supabase.auth.getSession();
     
-    if (error || !session) {
-      return false;
+    if (error) {
+      return {
+        isValid: false,
+        needsRefresh: false,
+        shouldRelogin: true,
+        error: error.message
+      };
     }
     
-    if (userId && session.user.id !== userId) {
-      return false;
+    if (!session) {
+      return {
+        isValid: false,
+        needsRefresh: false,
+        shouldRelogin: true,
+        error: 'No session found'
+      };
     }
     
-    // Validate JWT token
-    if (!validateJWTToken(session)) {
-      return false;
+    // Check if token is expired or will expire soon (within 5 minutes)
+    const expiresAt = session.expires_at;
+    const now = Math.floor(Date.now() / 1000);
+    const fiveMinutes = 5 * 60;
+    
+    if (expiresAt && expiresAt < now) {
+      return {
+        isValid: false,
+        needsRefresh: true,
+        shouldRelogin: false,
+        error: 'Session expired'
+      };
     }
     
-    // Check database session context
-    return await checkDatabaseSession(userId);
+    if (expiresAt && expiresAt < (now + fiveMinutes)) {
+      return {
+        isValid: true,
+        needsRefresh: true,
+        shouldRelogin: false,
+        error: 'Session expires soon'
+      };
+    }
+    
+    return {
+      isValid: true,
+      needsRefresh: false,
+      shouldRelogin: false
+    };
+    
   } catch (error) {
-    console.error('Session validation failed:', error);
+    return {
+      isValid: false,
+      needsRefresh: false,
+      shouldRelogin: true,
+      error: String(error)
+    };
+  }
+};
+
+/**
+ * Attempt to recover session
+ */
+export const recoverSession = async (): Promise<boolean> => {
+  try {
+    console.log('🔄 Attempting session recovery...');
+    
+    const validation = await validateSession();
+    
+    if (validation.shouldRelogin) {
+      console.log('❌ Session cannot be recovered - relogin required');
+      toast.error('Session expirée. Veuillez vous reconnecter.');
+      
+      // Clear local storage and redirect to login
+      localStorage.clear();
+      window.location.href = '/login';
+      return false;
+    }
+    
+    if (validation.needsRefresh) {
+      console.log('🔄 Refreshing session...');
+      
+      const { error } = await supabase.auth.refreshSession();
+      if (error) {
+        console.error('❌ Session refresh failed:', error);
+        toast.error('Impossible de rafraîchir la session. Veuillez vous reconnecter.');
+        window.location.href = '/login';
+        return false;
+      }
+      
+      // Wait for token propagation
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
+      // Validate again
+      const newValidation = await validateSession();
+      if (!newValidation.isValid) {
+        console.error('❌ Session still invalid after refresh');
+        toast.error('Session non valide. Veuillez vous reconnecter.');
+        window.location.href = '/login';
+        return false;
+      }
+      
+      console.log('✅ Session refreshed successfully');
+      return true;
+    }
+    
+    if (validation.isValid) {
+      console.log('✅ Session is valid');
+      return true;
+    }
+    
+    return false;
+    
+  } catch (error) {
+    console.error('❌ Session recovery failed:', error);
+    toast.error('Erreur lors de la récupération de session. Veuillez vous reconnecter.');
+    window.location.href = '/login';
+    return false;
+  }
+};
+
+/**
+ * Test if database operations work with current session
+ */
+export const testDatabaseOperations = async (): Promise<boolean> => {
+  try {
+    // Test 1: Simple select that triggers RLS
+    const { error: selectError } = await supabase
+      .from('profiles')
+      .select('id')
+      .limit(1);
+    
+    if (selectError && selectError.message.includes('row-level security')) {
+      console.log('❌ Database auth test failed - RLS violation');
+      return false;
+    }
+    
+    // Test 2: Try to get user role (uses auth.uid())
+    const { data: session } = await supabase.auth.getSession();
+    if (session.session) {
+      const { error: roleError } = await supabase.rpc('get_user_role', { 
+        user_id: session.session.user.id 
+      });
+      
+      if (roleError) {
+        console.log('❌ Database auth test failed - function call error:', roleError.message);
+        return false;
+      }
+    }
+    
+    console.log('✅ Database operations working correctly');
+    return true;
+    
+  } catch (error) {
+    console.error('❌ Database operations test failed:', error);
     return false;
   }
 };
