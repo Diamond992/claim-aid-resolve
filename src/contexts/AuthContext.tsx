@@ -30,24 +30,69 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Set up auth state listener FIRST
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        console.log('Auth state change:', event, session?.user?.id);
-        setSession(session);
-        setUser(session?.user ?? null);
-        setIsLoading(false);
+    let mounted = true;
+
+    const initializeAuth = async () => {
+      try {
+        // Set up auth state listener FIRST
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(
+          (event, session) => {
+            console.log('🔄 Auth state change:', event, {
+              userId: session?.user?.id,
+              hasSession: !!session,
+              tokenExpiry: session?.expires_at ? new Date(session.expires_at * 1000) : null
+            });
+            
+            if (mounted) {
+              setSession(session);
+              setUser(session?.user ?? null);
+              setIsLoading(false);
+
+              // Log session synchronization for debugging
+              if (session) {
+                console.log('✅ Session synchronized with auth state');
+              } else {
+                console.log('❌ No session in auth state');
+              }
+            }
+          }
+        );
+
+        // THEN check for existing session
+        console.log('🔍 Checking for existing session...');
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('❌ Error getting session:', error);
+        } else if (session) {
+          console.log('✅ Found existing session for user:', session.user.id);
+        } else {
+          console.log('❌ No existing session found');
+        }
+
+        if (mounted) {
+          setSession(session);
+          setUser(session?.user ?? null);
+          setIsLoading(false);
+        }
+
+        return () => {
+          mounted = false;
+          subscription.unsubscribe();
+        };
+      } catch (error) {
+        console.error('❌ Auth initialization error:', error);
+        if (mounted) {
+          setIsLoading(false);
+        }
       }
-    );
+    };
 
-    // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setIsLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
+    const cleanup = initializeAuth();
+    return () => {
+      mounted = false;
+      cleanup.then(cleanupFn => cleanupFn?.());
+    };
   }, []);
 
   const signIn = async (email: string, password: string) => {
