@@ -17,6 +17,8 @@ export const ProtectedRoute = ({
   const navigate = useNavigate();
 
   useEffect(() => {
+    console.log('🔄 ProtectedRoute effect:', { isLoading, user: !!user, requireAuth });
+    
     if (!isLoading) {
       if (requireAuth && !user) {
         console.log('User not authenticated, redirecting to:', redirectTo);
