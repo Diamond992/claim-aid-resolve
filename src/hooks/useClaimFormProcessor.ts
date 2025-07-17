@@ -1,20 +1,27 @@
 
 import { useState } from 'react';
-import { processClaimFormData as processClaimData } from '@/services/claimFormService';
+import { useAuth } from '@/contexts/AuthContext';
 
-export const useClaimFormProcessor = (userId?: string) => {
+export const useClaimFormProcessor = () => {
   const [isProcessing, setIsProcessing] = useState(false);
+  const auth = useAuth();
 
   const processClaimFormData = async (): Promise<boolean> => {
-    if (!userId) {
-      console.error('No userId provided');
+    if (!auth.user?.id) {
+      console.error('No user authenticated');
       return false;
     }
 
     setIsProcessing(true);
-    const result = await processClaimData(userId);
-    setIsProcessing(false);
-    return result;
+    
+    try {
+      // Import the service dynamically to use the updated version
+      const { processClaimFormData: processClaimData } = await import('@/services/claimFormService');
+      const result = await processClaimData(auth);
+      return result;
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return { isProcessing, processClaimFormData };

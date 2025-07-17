@@ -12,6 +12,8 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: any }>;
   updatePassword: (newPassword: string) => Promise<{ error: any }>;
+  ensureAuthenticated: () => Promise<boolean>;
+  waitForAuth: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -31,32 +33,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     let mounted = true;
+    let subscription: any = null;
 
     const initializeAuth = async () => {
       try {
+        console.log('🔍 Initializing authentication...');
+        
         // Set up auth state listener FIRST
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(
-          (event, session) => {
+        const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(
+          async (event, session) => {
             console.log('🔄 Auth state change:', event, {
-              userId: session?.user?.id,
+              userId: session?.user?.id?.substring(0, 8) + '...',
               hasSession: !!session,
               tokenExpiry: session?.expires_at ? new Date(session.expires_at * 1000) : null
             });
             
-            if (mounted) {
-              setSession(session);
-              setUser(session?.user ?? null);
-              setIsLoading(false);
+            if (!mounted) return;
 
-              // Log session synchronization for debugging
-              if (session) {
-                console.log('✅ Session synchronized with auth state');
-              } else {
-                console.log('❌ No session in auth state');
-              }
+            if (session) {
+              // Force JWT synchronization for database operations
+              await ensureJWTSync(session);
             }
+            
+            setSession(session);
+            setUser(session?.user ?? null);
+            setIsLoading(false);
+
+            console.log(session ? '✅ Session synchronized' : '❌ No session');
           }
         );
+        
+        subscription = authSubscription;
 
         // THEN check for existing session
         console.log('🔍 Checking for existing session...');
@@ -64,22 +71,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         if (error) {
           console.error('❌ Error getting session:', error);
-        } else if (session) {
-          console.log('✅ Found existing session for user:', session.user.id);
-        } else {
-          console.log('❌ No existing session found');
         }
 
         if (mounted) {
+          if (session) {
+            console.log('✅ Found existing session');
+            await ensureJWTSync(session);
+          } else {
+            console.log('❌ No existing session found');
+          }
+          
           setSession(session);
           setUser(session?.user ?? null);
           setIsLoading(false);
         }
 
-        return () => {
-          mounted = false;
-          subscription.unsubscribe();
-        };
       } catch (error) {
         console.error('❌ Auth initialization error:', error);
         if (mounted) {
@@ -88,10 +94,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     };
 
-    const cleanup = initializeAuth();
+    // Helper function to ensure JWT is properly synchronized
+    const ensureJWTSync = async (session: Session) => {
+      try {
+        // Test if auth.uid() works in the database
+        const { data, error } = await supabase.rpc('get_user_role', { user_id: session.user.id });
+        if (error && error.code === 'PGRST116') {
+          console.log('🔄 JWT not yet synchronized, waiting...');
+          // Wait a bit for JWT to propagate
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      } catch (error) {
+        console.warn('JWT sync test failed:', error);
+      }
+    };
+
+    initializeAuth();
+
     return () => {
       mounted = false;
-      cleanup.then(cleanupFn => cleanupFn?.());
+      if (subscription) {
+        subscription.unsubscribe();
+      }
     };
   }, []);
 
@@ -202,6 +226,76 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Ensure user is authenticated and JWT is synchronized
+  const ensureAuthenticated = async (): Promise<boolean> => {
+    console.log('🔐 Ensuring authentication...');
+    
+    if (!session || !user) {
+      console.log('❌ No session or user found');
+      return false;
+    }
+
+    try {
+      // Test database authentication by calling a simple RPC
+      const { error } = await supabase.rpc('get_user_role', { user_id: user.id });
+      
+      if (error) {
+        console.error('❌ Database auth test failed:', error);
+        
+        // Try to refresh the session
+        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+        
+        if (refreshError) {
+          console.error('❌ Session refresh failed:', refreshError);
+          return false;
+        }
+        
+        console.log('✅ Session refreshed successfully');
+        
+        // Wait a bit for JWT to propagate
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
+        // Test again
+        const { error: retestError } = await supabase.rpc('get_user_role', { user_id: user.id });
+        
+        if (retestError) {
+          console.error('❌ Database auth still failing after refresh');
+          return false;
+        }
+      }
+      
+      console.log('✅ Authentication verified');
+      return true;
+      
+    } catch (error) {
+      console.error('❌ Authentication verification failed:', error);
+      return false;
+    }
+  };
+
+  // Wait for authentication to be ready
+  const waitForAuth = async (maxWaitMs = 5000): Promise<boolean> => {
+    console.log('⏳ Waiting for authentication...');
+    
+    const startTime = Date.now();
+    
+    while (Date.now() - startTime < maxWaitMs) {
+      if (!isLoading && session && user) {
+        const isAuthenticated = await ensureAuthenticated();
+        if (isAuthenticated) {
+          console.log('✅ Authentication ready');
+          return true;
+        }
+      }
+      
+      // Wait 100ms before retrying
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    
+    console.log('❌ Authentication timeout');
+    return false;
+  };
+
   const value = {
     user,
     session,
@@ -211,6 +305,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     signOut,
     resetPassword,
     updatePassword,
+    ensureAuthenticated,
+    waitForAuth,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

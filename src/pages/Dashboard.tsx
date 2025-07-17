@@ -17,7 +17,7 @@ const Dashboard = () => {
   const [profile, setProfile] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasProcessedClaims, setHasProcessedClaims] = useState(false);
-  const { isProcessing, processClaimFormData } = useClaimFormProcessor(user?.id);
+  const { isProcessing, processClaimFormData } = useClaimFormProcessor();
 
   useEffect(() => {
     const getProfile = async () => {
