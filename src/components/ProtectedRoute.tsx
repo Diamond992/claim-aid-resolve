@@ -1,6 +1,7 @@
 import { ReactNode, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -24,9 +25,32 @@ export const ProtectedRoute = ({
         console.log('User not authenticated, redirecting to:', redirectTo);
         navigate(redirectTo);
       } else if (!requireAuth && user) {
-        // Redirect authenticated users away from auth pages
-        console.log('User already authenticated, redirecting to dashboard');
-        navigate('/dashboard');
+        // Redirect authenticated users to appropriate dashboard
+        console.log('User already authenticated, redirecting to dashboard...');
+        
+        // Check user role for proper redirection
+        const checkUserRole = async () => {
+          try {
+            const { data: roleData } = await supabase
+              .from('user_roles')
+              .select('role')
+              .eq('user_id', user.id)
+              .single();
+            
+            if (roleData?.role === 'admin') {
+              console.log('🔀 Redirecting admin to /admin');
+              navigate('/admin');
+            } else {
+              console.log('🔀 Redirecting user to /dashboard');
+              navigate('/dashboard');
+            }
+          } catch (error) {
+            console.error('Error checking user role:', error);
+            navigate('/dashboard');
+          }
+        };
+        
+        checkUserRole();
       }
     }
   }, [user, isLoading, requireAuth, redirectTo, navigate]);

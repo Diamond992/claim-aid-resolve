@@ -31,18 +31,8 @@ const Login = () => {
         return;
       }
 
-      // Check user role to redirect appropriately
-      const { data: roleData } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id)
-        .single();
-      
-      if (roleData?.role === 'admin') {
-        navigate('/admin');
-      } else {
-        navigate('/dashboard');
-      }
+      // ProtectedRoute will handle the redirection automatically
+      console.log('✅ Login successful, waiting for ProtectedRoute redirection');
     } catch (error) {
       toast.error("Une erreur est survenue lors de la connexion");
       console.error('Login error:', error);

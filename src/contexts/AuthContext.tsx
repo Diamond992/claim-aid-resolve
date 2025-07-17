@@ -121,7 +121,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signIn = async (email: string, password: string) => {
     try {
-      setIsLoading(true);
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -135,14 +134,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('Error signing in:', error);
       toast.error(error.message || "Erreur lors de la connexion");
       return { user: null, error };
-    } finally {
-      setIsLoading(false);
     }
   };
 
   const signUp = async (email: string, password: string, firstName?: string, lastName?: string) => {
     try {
-      setIsLoading(true);
       const redirectUrl = `${window.location.origin}/`;
       
       const { data, error } = await supabase.auth.signUp({
@@ -165,8 +161,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('Error signing up:', error);
       toast.error(error.message || "Erreur lors de l'inscription");
       return { user: null, error };
-    } finally {
-      setIsLoading(false);
     }
   };
 
