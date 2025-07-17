@@ -1,6 +1,25 @@
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
+type TypeSinistre = 'auto' | 'habitation' | 'sante' | 'autre';
+
+// Function to map contract type to database enum
+const mapContractTypeToSinistre = (contractType: string): TypeSinistre => {
+  const lowerType = contractType.toLowerCase();
+  
+  if (lowerType.includes('auto') || lowerType.includes('vehicule')) {
+    return 'auto';
+  }
+  if (lowerType.includes('habitation') || lowerType.includes('logement') || lowerType.includes('maison')) {
+    return 'habitation';
+  }
+  if (lowerType.includes('sante') || lowerType.includes('medical') || lowerType.includes('soin')) {
+    return 'sante';
+  }
+  
+  return 'autre';
+};
+
 interface ClaimFormData {
   contractType: string;
   accidentDate: string;
@@ -80,7 +99,7 @@ export const processClaimFormData = async (authContext: any): Promise<boolean> =
     console.log('📄 Step 3: Preparing dossier data...');
     const dossierData = {
       client_id: userId,
-      type_sinistre: parsedData.contractType,
+      type_sinistre: mapContractTypeToSinistre(parsedData.contractType),
       compagnie_assurance: parsedData.insuranceCompany || 'Non spécifiée',
       police_number: parsedData.policyNumber || 'Non spécifié',
       date_sinistre: parsedData.accidentDate,
