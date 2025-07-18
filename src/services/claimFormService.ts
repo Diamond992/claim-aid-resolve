@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -29,8 +30,13 @@ interface ClaimFormData {
   firstName: string;
   lastName: string;
   email: string;
+  phone?: string;
+  address: string;
   policyNumber?: string;
   insuranceCompany?: string;
+  description?: string;
+  hasExpertise?: string;
+  previousExchanges?: string;
 }
 
 export const processClaimFormData = async (authContext: any): Promise<boolean> => {
@@ -69,19 +75,45 @@ export const processClaimFormData = async (authContext: any): Promise<boolean> =
     let parsedData: ClaimFormData;
     try {
       parsedData = JSON.parse(claimData);
+      console.log('📊 Parsed claim data:', {
+        contractType: parsedData.contractType,
+        accidentDate: parsedData.accidentDate,
+        refusalDate: parsedData.refusalDate,
+        claimedAmount: parsedData.claimedAmount,
+        firstName: parsedData.firstName,
+        lastName: parsedData.lastName,
+        email: parsedData.email
+      });
     } catch (error) {
       console.error('❌ Failed to parse claim data:', error);
       toast.error("Données de réclamation corrompues. Veuillez recommencer.");
       return false;
     }
 
-    // Validate required fields
-    const requiredFields = ['contractType', 'accidentDate', 'refusalDate', 'claimedAmount', 'firstName', 'lastName', 'email'];
-    const missingFields = requiredFields.filter(field => !parsedData[field as keyof ClaimFormData]);
+    // Validate required fields with detailed logging
+    const requiredFields = [
+      { field: 'contractType', value: parsedData.contractType },
+      { field: 'accidentDate', value: parsedData.accidentDate },
+      { field: 'refusalDate', value: parsedData.refusalDate },
+      { field: 'claimedAmount', value: parsedData.claimedAmount },
+      { field: 'firstName', value: parsedData.firstName },
+      { field: 'lastName', value: parsedData.lastName },
+      { field: 'email', value: parsedData.email },
+      { field: 'address', value: parsedData.address }
+    ];
+    
+    const missingFields = requiredFields.filter(({ field, value }) => {
+      const isEmpty = !value || value.toString().trim() === '';
+      if (isEmpty) {
+        console.error(`❌ Missing field: ${field}, value:`, value);
+      }
+      return isEmpty;
+    });
     
     if (missingFields.length > 0) {
-      console.error('❌ Missing required fields:', missingFields);
-      toast.error(`Champs requis manquants: ${missingFields.join(', ')}`);
+      const fieldNames = missingFields.map(f => f.field);
+      console.error('❌ Missing required fields:', fieldNames);
+      toast.error(`Champs requis manquants: ${fieldNames.join(', ')}`);
       return false;
     }
 
@@ -90,6 +122,22 @@ export const processClaimFormData = async (authContext: any): Promise<boolean> =
     if (isNaN(claimedAmount) || claimedAmount <= 0) {
       console.error('❌ Invalid claimed amount:', parsedData.claimedAmount);
       toast.error("Le montant réclamé doit être un nombre positif valide.");
+      return false;
+    }
+
+    // Validate date format
+    const accidentDate = new Date(parsedData.accidentDate);
+    const refusalDate = new Date(parsedData.refusalDate);
+    
+    if (isNaN(accidentDate.getTime())) {
+      console.error('❌ Invalid accident date:', parsedData.accidentDate);
+      toast.error("Date du sinistre invalide.");
+      return false;
+    }
+    
+    if (isNaN(refusalDate.getTime())) {
+      console.error('❌ Invalid refusal date:', parsedData.refusalDate);
+      toast.error("Date du refus invalide.");
       return false;
     }
 
@@ -109,7 +157,11 @@ export const processClaimFormData = async (authContext: any): Promise<boolean> =
       statut: 'nouveau' as const,
     };
 
-    console.log('📊 Dossier data prepared');
+    console.log('📊 Dossier data prepared:', {
+      type_sinistre: dossierData.type_sinistre,
+      compagnie_assurance: dossierData.compagnie_assurance,
+      montant_refuse: dossierData.montant_refuse
+    });
 
     // Step 4: Insert dossier with authentication check
     console.log('💾 Step 4: Inserting dossier into database...');

@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,7 +31,8 @@ const ClaimForm = () => {
       email: "",
       phone: "",
       address: "",
-      policyNumber: ""
+      policyNumber: "",
+      insuranceCompany: ""
     }
   });
 
@@ -62,8 +62,28 @@ const ClaimForm = () => {
     if (currentStep < 3) {
       setCurrentStep(currentStep + 1);
     } else {
-      // Save form data to localStorage temporarily
-      localStorage.setItem('claimFormData', JSON.stringify(formData));
+      // Transform and save form data to match service expectations
+      const transformedData = {
+        contractType: formData.contractType,
+        accidentDate: formData.incidentDate ? format(formData.incidentDate, "yyyy-MM-dd") : "",
+        refusalDate: formData.refusalDate ? format(formData.refusalDate, "yyyy-MM-dd") : "",
+        refusalReason: formData.refusalReason,
+        claimedAmount: formData.claimedAmount,
+        description: formData.description,
+        hasExpertise: formData.hasExpertise,
+        previousExchanges: formData.previousExchanges,
+        // Flatten personal info
+        firstName: formData.personalInfo.firstName,
+        lastName: formData.personalInfo.lastName,
+        email: formData.personalInfo.email,
+        phone: formData.personalInfo.phone,
+        address: formData.personalInfo.address,
+        policyNumber: formData.personalInfo.policyNumber || "",
+        insuranceCompany: formData.personalInfo.insuranceCompany || ""
+      };
+      
+      console.log('💾 Saving transformed claim data:', transformedData);
+      localStorage.setItem('claimFormData', JSON.stringify(transformedData));
       toast.success("Informations enregistrées avec succès !");
       navigate('/register?from=claim');
     }
@@ -333,6 +353,19 @@ const ClaimForm = () => {
             onChange={(e) => setFormData({
               ...formData, 
               personalInfo: {...formData.personalInfo, policyNumber: e.target.value}
+            })}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="insuranceCompany">Compagnie d'assurance</Label>
+          <Input
+            id="insuranceCompany"
+            placeholder="Nom de votre compagnie d'assurance"
+            value={formData.personalInfo.insuranceCompany}
+            onChange={(e) => setFormData({
+              ...formData, 
+              personalInfo: {...formData.personalInfo, insuranceCompany: e.target.value}
             })}
           />
         </div>
