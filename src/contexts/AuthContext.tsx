@@ -58,10 +58,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setSession(session);
             setUser(session?.user ?? null);
             
-            // Only set loading to false if this is not the initial load
-            if (event !== 'INITIAL_SESSION') {
-              setIsLoading(false);
-            }
+            // Always set loading to false after processing auth state change
+            setIsLoading(false);
 
             console.log(session ? '✅ Session synchronized' : '❌ No session');
           }
@@ -75,6 +73,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         if (error) {
           console.error('❌ Error getting session:', error);
+          if (mounted) {
+            setIsLoading(false);
+          }
+          return;
         }
 
         if (mounted) {
@@ -115,8 +117,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     initializeAuth();
 
+    // Safety timeout to ensure isLoading never stays true indefinitely
+    const safetyTimeout = setTimeout(() => {
+      if (mounted && isLoading) {
+        console.log('⚠️ Safety timeout: forcing isLoading to false');
+        setIsLoading(false);
+      }
+    }, 3000);
+
     return () => {
       mounted = false;
+      clearTimeout(safetyTimeout);
       if (subscription) {
         subscription.unsubscribe();
       }
