@@ -57,7 +57,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             
             setSession(session);
             setUser(session?.user ?? null);
-            setIsLoading(false);
+            
+            // Only set loading to false if this is not the initial load
+            if (event !== 'INITIAL_SESSION') {
+              setIsLoading(false);
+            }
 
             console.log(session ? '✅ Session synchronized' : '❌ No session');
           }
