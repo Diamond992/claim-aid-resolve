@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -12,8 +13,6 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: any }>;
   updatePassword: (newPassword: string) => Promise<{ error: any }>;
-  ensureAuthenticated: () => Promise<boolean>;
-  waitForAuth: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -32,121 +31,96 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    console.log('🔄 AuthProvider: Initializing authentication...');
+    
     let mounted = true;
-    let subscription: any = null;
+    
+    // Function to update auth state
+    const updateAuthState = (newSession: Session | null) => {
+      if (!mounted) return;
+      
+      console.log('🔄 Updating auth state:', {
+        hasSession: !!newSession,
+        userId: newSession?.user?.id?.substring(0, 8) + '...' || 'none'
+      });
+      
+      setSession(newSession);
+      setUser(newSession?.user ?? null);
+      setIsLoading(false);
+    };
 
-    const initializeAuth = async () => {
+    // Set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('🔄 Auth state change:', event);
+        updateAuthState(session);
+      }
+    );
+
+    // Get initial session
+    const initializeSession = async () => {
       try {
-        console.log('🔍 Initializing authentication...');
-        
-        // Set up auth state listener FIRST
-        const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(
-          async (event, session) => {
-            console.log('🔄 Auth state change:', event, {
-              userId: session?.user?.id?.substring(0, 8) + '...',
-              hasSession: !!session,
-              tokenExpiry: session?.expires_at ? new Date(session.expires_at * 1000) : null
-            });
-            
-            if (!mounted) return;
-
-            if (session) {
-              // Force JWT synchronization for database operations
-              await ensureJWTSync(session);
-            }
-            
-            setSession(session);
-            setUser(session?.user ?? null);
-            
-            // Always set loading to false after processing auth state change
-            setIsLoading(false);
-
-            console.log(session ? '✅ Session synchronized' : '❌ No session');
-          }
-        );
-        
-        subscription = authSubscription;
-
-        // THEN check for existing session
-        console.log('🔍 Checking for existing session...');
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {
-          console.error('❌ Error getting session:', error);
-          if (mounted) {
-            setIsLoading(false);
-          }
+          console.error('❌ Error getting initial session:', error);
+          updateAuthState(null);
           return;
         }
-
-        if (mounted) {
-          if (session) {
-            console.log('✅ Found existing session');
-            await ensureJWTSync(session);
-          } else {
-            console.log('❌ No existing session found');
-          }
-          
-          setSession(session);
-          setUser(session?.user ?? null);
-          setIsLoading(false);
-        }
-
+        
+        console.log('✅ Got initial session:', !!session);
+        updateAuthState(session);
+        
       } catch (error) {
-        console.error('❌ Auth initialization error:', error);
-        if (mounted) {
-          setIsLoading(false);
-        }
+        console.error('❌ Failed to initialize session:', error);
+        updateAuthState(null);
       }
     };
 
-    // Helper function to ensure JWT is properly synchronized
-    const ensureJWTSync = async (session: Session) => {
-      try {
-        // Test if auth.uid() works in the database
-        const { data, error } = await supabase.rpc('get_user_role', { user_id: session.user.id });
-        if (error && error.code === 'PGRST116') {
-          console.log('🔄 JWT not yet synchronized, waiting...');
-          // Wait a bit for JWT to propagate
-          await new Promise(resolve => setTimeout(resolve, 100));
-        }
-      } catch (error) {
-        console.warn('JWT sync test failed:', error);
-      }
-    };
+    initializeSession();
 
-    initializeAuth();
-
-    // Safety timeout to ensure isLoading never stays true indefinitely
-    const safetyTimeout = setTimeout(() => {
+    // Safety timeout
+    const safetyTimer = setTimeout(() => {
       if (mounted && isLoading) {
-        console.log('⚠️ Safety timeout: forcing isLoading to false');
+        console.log('⚠️ Safety timeout: forcing auth ready');
         setIsLoading(false);
       }
-    }, 3000);
+    }, 2000);
 
     return () => {
       mounted = false;
-      clearTimeout(safetyTimeout);
-      if (subscription) {
-        subscription.unsubscribe();
-      }
+      clearTimeout(safetyTimer);
+      subscription.unsubscribe();
     };
   }, []);
 
   const signIn = async (email: string, password: string) => {
     try {
+      console.log('🔐 Attempting sign in for:', email);
+      
       const { data, error } = await supabase.auth.signInWithPassword({
-        email,
+        email: email.trim(),
         password,
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Sign in error:', error);
+        toast.error(error.message || "Erreur lors de la connexion");
+        return { user: null, error };
+      }
 
+      if (!data.user) {
+        console.error('❌ No user returned from sign in');
+        toast.error("Erreur: Aucun utilisateur retourné");
+        return { user: null, error: new Error('No user returned') };
+      }
+
+      console.log('✅ Sign in successful');
       toast.success("Connexion réussie");
       return { user: data.user, error: null };
+
     } catch (error: any) {
-      console.error('Error signing in:', error);
+      console.error('❌ Sign in exception:', error);
       toast.error(error.message || "Erreur lors de la connexion");
       return { user: null, error };
     }
@@ -157,7 +131,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const redirectUrl = `${window.location.origin}/`;
       
       const { data, error } = await supabase.auth.signUp({
-        email,
+        email: email.trim(),
         password,
         options: {
           emailRedirectTo: redirectUrl,
@@ -181,17 +155,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signOut = async () => {
     try {
-      // Clear local state first
+      console.log('🔐 Signing out...');
+      
+      // Clear state immediately
       setUser(null);
       setSession(null);
       
-      // Attempt to sign out from Supabase
       const { error } = await supabase.auth.signOut();
       
       if (error) {
-        console.warn('Supabase signOut warning:', error);
+        console.warn('Sign out warning:', error);
       }
       
+      console.log('✅ Sign out successful');
       toast.success("Déconnexion réussie");
     } catch (error) {
       console.error('Error during signOut:', error);
@@ -203,7 +179,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const redirectUrl = `${window.location.origin}/reset-password`;
       
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
         redirectTo: redirectUrl,
       });
 
@@ -235,76 +211,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Ensure user is authenticated and JWT is synchronized
-  const ensureAuthenticated = async (): Promise<boolean> => {
-    console.log('🔐 Ensuring authentication...');
-    
-    if (!session || !user) {
-      console.log('❌ No session or user found');
-      return false;
-    }
-
-    try {
-      // Test database authentication by calling a simple RPC
-      const { error } = await supabase.rpc('get_user_role', { user_id: user.id });
-      
-      if (error) {
-        console.error('❌ Database auth test failed:', error);
-        
-        // Try to refresh the session
-        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-        
-        if (refreshError) {
-          console.error('❌ Session refresh failed:', refreshError);
-          return false;
-        }
-        
-        console.log('✅ Session refreshed successfully');
-        
-        // Wait a bit for JWT to propagate
-        await new Promise(resolve => setTimeout(resolve, 200));
-        
-        // Test again
-        const { error: retestError } = await supabase.rpc('get_user_role', { user_id: user.id });
-        
-        if (retestError) {
-          console.error('❌ Database auth still failing after refresh');
-          return false;
-        }
-      }
-      
-      console.log('✅ Authentication verified');
-      return true;
-      
-    } catch (error) {
-      console.error('❌ Authentication verification failed:', error);
-      return false;
-    }
-  };
-
-  // Wait for authentication to be ready
-  const waitForAuth = async (maxWaitMs = 5000): Promise<boolean> => {
-    console.log('⏳ Waiting for authentication...');
-    
-    const startTime = Date.now();
-    
-    while (Date.now() - startTime < maxWaitMs) {
-      if (!isLoading && session && user) {
-        const isAuthenticated = await ensureAuthenticated();
-        if (isAuthenticated) {
-          console.log('✅ Authentication ready');
-          return true;
-        }
-      }
-      
-      // Wait 100ms before retrying
-      await new Promise(resolve => setTimeout(resolve, 100));
-    }
-    
-    console.log('❌ Authentication timeout');
-    return false;
-  };
-
   const value = {
     user,
     session,
@@ -314,8 +220,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     signOut,
     resetPassword,
     updatePassword,
-    ensureAuthenticated,
-    waitForAuth,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

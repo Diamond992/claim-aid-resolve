@@ -5,13 +5,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Shield, Eye, EyeOff } from "lucide-react";
-import { useNavigate, Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
 
 const Login = () => {
-  const navigate = useNavigate();
   const { signIn } = useAuth();
   const [formData, setFormData] = useState({
     email: "",
@@ -22,20 +20,28 @@ const Login = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!formData.email.trim() || !formData.password) {
+      toast.error("Veuillez remplir tous les champs");
+      return;
+    }
+
     setIsLoading(true);
 
     try {
+      console.log('🔐 Login form submission');
+      
       const { user, error } = await signIn(formData.email, formData.password);
 
       if (error || !user) {
+        console.error('❌ Login failed:', error);
         return;
       }
 
-      // ProtectedRoute will handle the redirection automatically
-      console.log('✅ Login successful, waiting for ProtectedRoute redirection');
+      console.log('✅ Login successful, user will be redirected automatically');
     } catch (error) {
+      console.error('❌ Login exception:', error);
       toast.error("Une erreur est survenue lors de la connexion");
-      console.error('Login error:', error);
     } finally {
       setIsLoading(false);
     }
@@ -71,6 +77,7 @@ const Login = () => {
                   value={formData.email}
                   onChange={(e) => setFormData({...formData, email: e.target.value})}
                   required
+                  disabled={isLoading}
                 />
               </div>
 
@@ -84,6 +91,7 @@ const Login = () => {
                     value={formData.password}
                     onChange={(e) => setFormData({...formData, password: e.target.value})}
                     required
+                    disabled={isLoading}
                   />
                   <Button
                     type="button"
@@ -91,6 +99,7 @@ const Login = () => {
                     size="sm"
                     className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
                     onClick={() => setShowPassword(!showPassword)}
+                    disabled={isLoading}
                   >
                     {showPassword ? (
                       <EyeOff className="h-4 w-4 text-gray-400" />
