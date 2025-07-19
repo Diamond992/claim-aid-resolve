@@ -40,27 +40,9 @@ export const ProtectedRoute = ({
     }
 
     if (!requireAuth && user) {
-      // Don't need auth but have user - redirect to dashboard
-      console.log('✅ Already authenticated, checking role for redirect...');
-      
-      const redirectToDashboard = async () => {
-        try {
-          const { data: roleData } = await supabase
-            .from('user_roles')
-            .select('role')
-            .eq('user_id', user.id)
-            .single();
-          
-          const targetPath = roleData?.role === 'admin' ? '/admin' : '/dashboard';
-          console.log('🔀 Redirecting to:', targetPath);
-          navigate(targetPath, { replace: true });
-        } catch (error) {
-          console.error('Error checking user role:', error);
-          navigate('/dashboard', { replace: true });
-        }
-      };
-      
-      redirectToDashboard();
+      // Don't need auth but have user - redirect to dashboard immediately
+      console.log('✅ Already authenticated, redirecting to dashboard');
+      navigate('/dashboard', { replace: true });
       return;
     }
 
