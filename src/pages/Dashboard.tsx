@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { useClaimFormProcessor } from "@/hooks/useClaimFormProcessor";
+import { DeleteDossierDialog } from "@/components/DeleteDossierDialog";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -330,6 +331,10 @@ const Dashboard = () => {
                       >
                         <MessageSquare className="h-4 w-4" />
                       </Button>
+                      <DeleteDossierDialog
+                        dossierId={dossier.id}
+                        dossierTitle={`${getTypeLabel(dossier.type_sinistre)} - ${dossier.compagnie_assurance}`}
+                      />
                     </div>
                   </CardContent>
                 </Card>

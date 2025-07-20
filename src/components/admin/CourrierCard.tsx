@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Bot, Eye, CheckCircle, XCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { DeleteDossierDialog } from "@/components/admin/DeleteDossierDialog";
 
 interface CourierData {
   id: string;
@@ -158,6 +159,11 @@ const CourrierCard = ({ courrier, onValidate, onReject }: CourrierCardProps) => 
               </Button>
             </>
           )}
+          
+          <DeleteDossierDialog
+            dossierId={courrier.dossier_id}
+            dossierTitle={`${courrier.dossier?.profiles?.first_name} ${courrier.dossier?.profiles?.last_name} - ${courrier.dossier?.compagnie_assurance}`}
+          />
         </div>
       </CardContent>
     </Card>

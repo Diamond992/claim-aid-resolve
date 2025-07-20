@@ -113,6 +113,38 @@ export const useAdminMutations = () => {
     },
   });
 
+  // Delete dossier mutation
+  const deleteDossierMutation = useMutation({
+    mutationFn: async (dossierId: string) => {
+      // First delete related data
+      await supabase.from('courriers_projets').delete().eq('dossier_id', dossierId);
+      await supabase.from('echeances').delete().eq('dossier_id', dossierId);
+      await supabase.from('documents').delete().eq('dossier_id', dossierId);
+      await supabase.from('paiements').delete().eq('dossier_id', dossierId);
+      
+      // Then delete the dossier
+      const { error } = await supabase
+        .from('dossiers')
+        .delete()
+        .eq('id', dossierId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-dossiers'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-dossiers-minimal'] });
+      queryClient.invalidateQueries({ queryKey: ['dossiers'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-courriers'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-echeances'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-payments'] });
+      toast.success("Dossier supprimé avec succès");
+    },
+    onError: (error) => {
+      console.error('Error deleting dossier:', error);
+      toast.error("Erreur lors de la suppression du dossier");
+    },
+  });
+
   // Test webhook mutation
   const testWebhookMutation = useMutation({
     mutationFn: async ({ webhook_url, test_payload }: { webhook_url: string; test_payload: any }) => {
@@ -144,6 +176,7 @@ export const useAdminMutations = () => {
     updateEcheanceStatusMutation,
     updatePaymentStatusMutation,
     createEcheanceMutation,
+    deleteDossierMutation,
     testWebhookMutation,
   };
 };
