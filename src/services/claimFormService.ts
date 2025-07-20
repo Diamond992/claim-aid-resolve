@@ -43,19 +43,23 @@ export const processClaimFormData = async (authContext: any): Promise<boolean> =
   console.log('🚀 Starting claim form processing...');
 
   try {
-    // Step 1: Ensure authentication is ready
-    console.log('🔐 Step 1: Ensuring authentication...');
+    // Step 1: Check authentication state
+    console.log('🔐 Step 1: Checking authentication state...');
     
-    const isAuthReady = await authContext.waitForAuth();
-    if (!isAuthReady) {
-      console.error('❌ Authentication not ready');
-      toast.error("Problème d'authentification. Veuillez vous reconnecter.");
-      return false;
+    // Wait for auth to stabilize if still loading
+    if (authContext.isLoading) {
+      console.log('⏳ Auth still loading, waiting...');
+      // Simple wait for auth to stabilize
+      let attempts = 0;
+      while (authContext.isLoading && attempts < 50) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        attempts++;
+      }
     }
 
     const userId = authContext.user?.id;
     if (!userId) {
-      console.error('❌ No user ID available');
+      console.error('❌ No user ID available after auth check');
       toast.error("Utilisateur non authentifié. Veuillez vous reconnecter.");
       return false;
     }
@@ -166,10 +170,9 @@ export const processClaimFormData = async (authContext: any): Promise<boolean> =
     // Step 4: Insert dossier with authentication check
     console.log('💾 Step 4: Inserting dossier into database...');
     
-    // Double-check authentication before database operation
-    const authCheck = await authContext.ensureAuthenticated();
-    if (!authCheck) {
-      console.error('❌ Authentication check failed before database operation');
+    // Final authentication check before database operation
+    if (!authContext.user?.id) {
+      console.error('❌ User no longer authenticated before database operation');
       toast.error("Problème d'authentification. Veuillez vous reconnecter.");
       return false;
     }
