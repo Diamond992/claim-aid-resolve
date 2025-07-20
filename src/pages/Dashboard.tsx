@@ -17,7 +17,7 @@ const Dashboard = () => {
   const [profile, setProfile] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasProcessedClaims, setHasProcessedClaims] = useState(false);
-  const { isProcessing, processClaimFormData } = useClaimFormProcessor();
+  const { isProcessing, processClaimFormData, resetProcessingAttempts, attemptCount } = useClaimFormProcessor();
 
   useEffect(() => {
     const getProfile = async () => {
@@ -72,7 +72,7 @@ const Dashboard = () => {
   // Process pending claims after user is authenticated and dashboard is loaded
   useEffect(() => {
     const processPendingClaims = async () => {
-      // Attendre que l'authentification soit complète
+      // Wait for auth to be ready and user to be loaded
       if (authLoading || !user?.id || isLoading || hasProcessedClaims || isProcessing) {
         return;
       }
@@ -83,7 +83,16 @@ const Dashboard = () => {
         return;
       }
 
-      // Attendre un petit délai pour s'assurer que la session est bien établie
+      // Check if we've exceeded maximum attempts
+      if (attemptCount >= 3) {
+        console.log('⚠️ Maximum processing attempts reached, cleaning up data');
+        localStorage.removeItem('claimFormData');
+        toast.error('Le traitement automatique a échoué plusieurs fois. Veuillez créer votre dossier manuellement.');
+        setHasProcessedClaims(true);
+        return;
+      }
+
+      // Wait a bit for session to stabilize
       await new Promise(resolve => setTimeout(resolve, 1000));
 
       console.log('Processing pending claim for authenticated user:', user.id);
@@ -97,8 +106,12 @@ const Dashboard = () => {
             refetchDossiers();
           }, 1000);
         } else {
-          // En cas d'échec, permettre un nouvel essai
-          setHasProcessedClaims(false);
+          // Allow retry only if we haven't exceeded max attempts
+          if (attemptCount < 3) {
+            setHasProcessedClaims(false);
+          } else {
+            toast.error('Impossible de traiter automatiquement votre dossier. Veuillez le créer manuellement.');
+          }
         }
       } catch (error) {
         console.error('Error during claim processing:', error);
@@ -108,7 +121,7 @@ const Dashboard = () => {
     };
 
     processPendingClaims();
-  }, [authLoading, user?.id, isLoading, hasProcessedClaims, isProcessing, processClaimFormData, refetchDossiers]);
+  }, [authLoading, user?.id, isLoading, hasProcessedClaims, isProcessing, processClaimFormData, refetchDossiers, attemptCount]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -154,6 +167,8 @@ const Dashboard = () => {
   };
 
   const handleLogout = async () => {
+    // Reset processing attempts on logout
+    resetProcessingAttempts();
     await signOut();
     navigate('/login');
   };
@@ -180,6 +195,11 @@ const Dashboard = () => {
                 <div className="flex items-center space-x-2 text-blue-600">
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                   <span className="text-sm">Traitement en cours...</span>
+                </div>
+              )}
+              {attemptCount > 0 && attemptCount < 3 && (
+                <div className="text-orange-600 text-sm">
+                  Tentative {attemptCount}/3
                 </div>
               )}
             </div>

@@ -39,6 +39,51 @@ interface ClaimFormData {
   previousExchanges?: string;
 }
 
+// Function to clean corrupted data from localStorage
+const cleanCorruptedData = (data: any): any => {
+  if (typeof data !== 'object' || data === null) {
+    return data;
+  }
+
+  // Check if it's a corrupted object with _type and value properties
+  if (data._type === 'undefined' && data.value === 'undefined') {
+    return undefined;
+  }
+
+  // If it's an array, clean each element
+  if (Array.isArray(data)) {
+    return data.map(cleanCorruptedData);
+  }
+
+  // If it's an object, clean each property
+  const cleaned: any = {};
+  for (const [key, value] of Object.entries(data)) {
+    cleaned[key] = cleanCorruptedData(value);
+  }
+
+  return cleaned;
+};
+
+// Function to validate if data is properly formatted
+const isValidClaimData = (data: any): data is ClaimFormData => {
+  if (!data || typeof data !== 'object') {
+    return false;
+  }
+
+  // Check for required fields and ensure they are strings (not objects)
+  const requiredStringFields = ['contractType', 'accidentDate', 'refusalDate', 'claimedAmount', 'firstName', 'lastName', 'email', 'address'];
+  
+  for (const field of requiredStringFields) {
+    const value = data[field];
+    if (!value || typeof value !== 'string' || value.trim() === '') {
+      console.error(`❌ Invalid or missing field: ${field}, type: ${typeof value}, value:`, value);
+      return false;
+    }
+  }
+
+  return true;
+};
+
 export const processClaimFormData = async (authContext: any): Promise<boolean> => {
   console.log('🚀 Starting claim form processing...');
 
@@ -66,8 +111,8 @@ export const processClaimFormData = async (authContext: any): Promise<boolean> =
 
     console.log('✅ Authentication verified for user:', userId.substring(0, 8) + '...');
 
-    // Step 2: Validate claim data
-    console.log('📋 Step 2: Validating claim form data...');
+    // Step 2: Validate and clean claim data
+    console.log('📋 Step 2: Validating and cleaning claim form data...');
     const claimData = localStorage.getItem('claimFormData');
     
     if (!claimData) {
@@ -76,88 +121,70 @@ export const processClaimFormData = async (authContext: any): Promise<boolean> =
       return false;
     }
 
-    let parsedData: ClaimFormData;
+    let parsedData: any;
     try {
       parsedData = JSON.parse(claimData);
-      console.log('📊 Parsed claim data:', {
-        contractType: parsedData.contractType,
-        accidentDate: parsedData.accidentDate,
-        refusalDate: parsedData.refusalDate,
-        claimedAmount: parsedData.claimedAmount,
-        firstName: parsedData.firstName,
-        lastName: parsedData.lastName,
-        email: parsedData.email
-      });
+      console.log('📊 Raw parsed claim data:', parsedData);
     } catch (error) {
       console.error('❌ Failed to parse claim data:', error);
+      localStorage.removeItem('claimFormData');
       toast.error("Données de réclamation corrompues. Veuillez recommencer.");
       return false;
     }
 
-    // Validate required fields with detailed logging
-    const requiredFields = [
-      { field: 'contractType', value: parsedData.contractType },
-      { field: 'accidentDate', value: parsedData.accidentDate },
-      { field: 'refusalDate', value: parsedData.refusalDate },
-      { field: 'claimedAmount', value: parsedData.claimedAmount },
-      { field: 'firstName', value: parsedData.firstName },
-      { field: 'lastName', value: parsedData.lastName },
-      { field: 'email', value: parsedData.email },
-      { field: 'address', value: parsedData.address }
-    ];
-    
-    const missingFields = requiredFields.filter(({ field, value }) => {
-      const isEmpty = !value || value.toString().trim() === '';
-      if (isEmpty) {
-        console.error(`❌ Missing field: ${field}, value:`, value);
-      }
-      return isEmpty;
-    });
-    
-    if (missingFields.length > 0) {
-      const fieldNames = missingFields.map(f => f.field);
-      console.error('❌ Missing required fields:', fieldNames);
-      toast.error(`Champs requis manquants: ${fieldNames.join(', ')}`);
-      return false;
-    }
+    // Clean corrupted data
+    console.log('🧹 Cleaning potentially corrupted data...');
+    const cleanedData = cleanCorruptedData(parsedData);
+    console.log('📊 Cleaned claim data:', cleanedData);
 
-    // Validate claimed amount
-    const claimedAmount = parseFloat(parsedData.claimedAmount);
-    if (isNaN(claimedAmount) || claimedAmount <= 0) {
-      console.error('❌ Invalid claimed amount:', parsedData.claimedAmount);
-      toast.error("Le montant réclamé doit être un nombre positif valide.");
-      return false;
-    }
-
-    // Validate date format
-    const accidentDate = new Date(parsedData.accidentDate);
-    const refusalDate = new Date(parsedData.refusalDate);
-    
-    if (isNaN(accidentDate.getTime())) {
-      console.error('❌ Invalid accident date:', parsedData.accidentDate);
-      toast.error("Date du sinistre invalide.");
-      return false;
-    }
-    
-    if (isNaN(refusalDate.getTime())) {
-      console.error('❌ Invalid refusal date:', parsedData.refusalDate);
-      toast.error("Date du refus invalide.");
+    // Validate cleaned data
+    if (!isValidClaimData(cleanedData)) {
+      console.error('❌ Claim data validation failed after cleaning');
+      localStorage.removeItem('claimFormData');
+      toast.error("Les données du formulaire sont incomplètes ou corrompues. Veuillez recommencer en remplissant tous les champs requis.");
       return false;
     }
 
     console.log('✅ Claim data validation passed');
 
+    // Validate claimed amount
+    const claimedAmount = parseFloat(cleanedData.claimedAmount);
+    if (isNaN(claimedAmount) || claimedAmount <= 0) {
+      console.error('❌ Invalid claimed amount:', cleanedData.claimedAmount);
+      toast.error("Le montant réclamé doit être un nombre positif valide.");
+      localStorage.removeItem('claimFormData');
+      return false;
+    }
+
+    // Validate date format
+    const accidentDate = new Date(cleanedData.accidentDate);
+    const refusalDate = new Date(cleanedData.refusalDate);
+    
+    if (isNaN(accidentDate.getTime())) {
+      console.error('❌ Invalid accident date:', cleanedData.accidentDate);
+      toast.error("Date du sinistre invalide.");
+      localStorage.removeItem('claimFormData');
+      return false;
+    }
+    
+    if (isNaN(refusalDate.getTime())) {
+      console.error('❌ Invalid refusal date:', cleanedData.refusalDate);
+      toast.error("Date du refus invalide.");
+      localStorage.removeItem('claimFormData');
+      return false;
+    }
+
     // Step 3: Prepare dossier data
     console.log('📄 Step 3: Preparing dossier data...');
     const dossierData = {
       client_id: userId,
-      type_sinistre: mapContractTypeToSinistre(parsedData.contractType),
-      compagnie_assurance: parsedData.insuranceCompany || 'Non spécifiée',
-      police_number: parsedData.policyNumber || 'Non spécifié',
-      date_sinistre: parsedData.accidentDate,
-      refus_date: parsedData.refusalDate,
+      type_sinistre: mapContractTypeToSinistre(cleanedData.contractType),
+      compagnie_assurance: cleanedData.insuranceCompany || 'Non spécifiée',
+      police_number: cleanedData.policyNumber || 'Non spécifié',
+      date_sinistre: cleanedData.accidentDate,
+      refus_date: cleanedData.refusalDate,
       montant_refuse: claimedAmount,
-      motif_refus: parsedData.refusalReason || null,
+      motif_refus: cleanedData.refusalReason || null,
       statut: 'nouveau' as const,
     };
 
@@ -205,6 +232,8 @@ export const processClaimFormData = async (authContext: any): Promise<boolean> =
 
   } catch (error) {
     console.error('❌ Claim form processing error:', error);
+    // Clean up corrupted data on any error
+    localStorage.removeItem('claimFormData');
     toast.error("Une erreur inattendue s'est produite lors du traitement de votre réclamation.");
     return false;
   }
