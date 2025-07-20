@@ -77,9 +77,9 @@ export const useAdminData = () => {
     },
   });
 
-  // Fetch dossiers for echeances creation
+  // Fetch minimal dossiers data only for echeances creation
   const { data: dossiers = [] } = useQuery({
-    queryKey: ['admin-dossiers'],
+    queryKey: ['admin-dossiers-minimal'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('dossiers')
@@ -91,7 +91,22 @@ export const useAdminData = () => {
             last_name
           )
         `)
+        .eq('statut', 'en_cours') // Only fetch active cases
         .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Fetch templates data
+  const { data: templates = [] } = useQuery({
+    queryKey: ['admin-templates'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('modeles_courriers')
+        .select('*')
+        .order('nom', { ascending: true });
 
       if (error) throw error;
       return data;
@@ -105,6 +120,7 @@ export const useAdminData = () => {
     echeances,
     payments,
     dossiers,
+    templates,
     isLoading,
   };
 };

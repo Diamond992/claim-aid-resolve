@@ -11,7 +11,7 @@ import { Navigate, useNavigate } from "react-router-dom";
 
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState("courriers");
-  const { courriers, echeances, payments, dossiers, isLoading } = useAdminData();
+  const { courriers, echeances, payments, dossiers, templates, isLoading } = useAdminData();
   const { user, signOut, isLoading: authLoading } = useAuth();
   const { isAdmin, isLoading: roleLoading } = useUserRole();
   const navigate = useNavigate();
@@ -93,6 +93,7 @@ const AdminDashboard = () => {
             echeances={echeances}
             payments={payments}
             dossiers={dossiers}
+            templates={templates}
             isLoading={isLoading}
             onCourrierValidate={(id) => handleCourrierStatusUpdate(id, 'valide_pret_envoi')}
             onCourrierReject={(id) => handleCourrierStatusUpdate(id, 'rejete')}

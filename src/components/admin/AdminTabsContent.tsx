@@ -14,6 +14,7 @@ interface AdminTabsContentProps {
   echeances: any[];
   payments: any[];
   dossiers: any[];
+  templates: any[];
   isLoading: boolean;
   onCourrierValidate: (id: string) => void;
   onCourrierReject: (id: string) => void;
@@ -32,6 +33,7 @@ export const AdminTabsContent = ({
   echeances, 
   payments, 
   dossiers, 
+  templates,
   isLoading,
   onCourrierValidate,
   onCourrierReject,
@@ -92,7 +94,7 @@ export const AdminTabsContent = ({
       </TabsContent>
       
       <TabsContent value="templates" className="mt-6">
-        <TemplatesList templates={[]} />
+        <TemplatesList templates={templates} />
       </TabsContent>
       
       <TabsContent value="config" className="mt-6">
