@@ -194,15 +194,44 @@ export const processClaimFormData = async (authContext: any): Promise<boolean> =
       montant_refuse: dossierData.montant_refuse
     });
 
-    // Step 4: Insert dossier with authentication check
+    // Step 4: Insert dossier with enhanced authentication check
     console.log('💾 Step 4: Inserting dossier into database...');
     
-    // Final authentication check before database operation
-    if (!authContext.user?.id) {
-      console.error('❌ User no longer authenticated before database operation');
-      toast.error("Problème d'authentification. Veuillez vous reconnecter.");
+    // Enhanced authentication verification before database operation
+    console.log('🔐 Verifying authentication state before insertion...');
+    
+    // Get fresh session to ensure auth is valid
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    
+    if (sessionError || !sessionData.session) {
+      console.error('❌ Session verification failed:', sessionError);
+      toast.error("Session expirée. Veuillez vous reconnecter.");
       return false;
     }
+    
+    const sessionUserId = sessionData.session.user.id;
+    console.log('✅ Session verified for user:', sessionUserId.substring(0, 8) + '...');
+    
+    // Double-check user consistency
+    if (sessionUserId !== authContext.user?.id) {
+      console.error('❌ User ID mismatch between context and session');
+      toast.error("Incohérence d'authentification. Veuillez vous reconnecter.");
+      return false;
+    }
+    
+    // Ensure client_id matches the authenticated user
+    if (dossierData.client_id !== sessionUserId) {
+      console.error('❌ Client ID does not match authenticated user');
+      dossierData.client_id = sessionUserId; // Fix the mismatch
+      console.log('✅ Corrected client_id to match authenticated user');
+    }
+    
+    console.log('📊 Final dossier data for insertion:', {
+      client_id: dossierData.client_id.substring(0, 8) + '...',
+      type_sinistre: dossierData.type_sinistre,
+      compagnie_assurance: dossierData.compagnie_assurance,
+      montant_refuse: dossierData.montant_refuse
+    });
 
     const { data: insertedDossier, error } = await supabase
       .from('dossiers')
@@ -211,9 +240,26 @@ export const processClaimFormData = async (authContext: any): Promise<boolean> =
       .single();
 
     if (error) {
-      console.error('❌ Database insert error:', error);
+      console.error('❌ Database insert error:', {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint
+      });
       
-      if (error.code === 'PGRST116' || error.message?.includes('JWT')) {
+      // Enhanced error handling for RLS violations
+      if (error.code === '42501' || error.message?.includes('row-level security')) {
+        console.error('❌ RLS policy violation detected');
+        toast.error("Erreur de sécurité lors de la création du dossier. Veuillez vous reconnecter et réessayer.");
+        
+        // Force auth refresh on RLS error
+        try {
+          await supabase.auth.refreshSession();
+          console.log('🔄 Session refreshed after RLS error');
+        } catch (refreshError) {
+          console.error('❌ Failed to refresh session:', refreshError);
+        }
+      } else if (error.code === 'PGRST116' || error.message?.includes('JWT')) {
         toast.error("Problème d'authentification lors de la création du dossier. Veuillez vous reconnecter.");
       } else {
         toast.error("Erreur lors de la création du dossier: " + (error.message || 'Erreur inconnue'));

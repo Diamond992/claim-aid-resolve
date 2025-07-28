@@ -590,6 +590,10 @@ export type Database = {
         Args: { webhook_url: string; payload_json: Json; max_retries?: number }
         Returns: boolean
       }
+      verify_auth_before_insert: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "admin" | "user"
