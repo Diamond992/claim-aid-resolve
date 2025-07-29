@@ -1,6 +1,7 @@
 
 import { useState, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { clearClaimFormData } from '@/utils/cacheUtils';
 
 export const useClaimFormProcessor = () => {
   const [isProcessing, setIsProcessing] = useState(false);
@@ -17,7 +18,7 @@ export const useClaimFormProcessor = () => {
     // Prevent infinite processing loops
     if (processingAttempts.current >= maxAttempts) {
       console.error('❌ Maximum processing attempts reached, stopping automatic processing');
-      localStorage.removeItem('claimFormData'); // Clean up to prevent further attempts
+      clearClaimFormData(); // Clean up to prevent further attempts
       return false;
     }
 
