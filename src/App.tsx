@@ -16,6 +16,7 @@ import Dashboard from "./pages/Dashboard";
 import AdminDashboard from "./pages/AdminDashboard";
 import PasswordReset from "./pages/PasswordReset";
 import ResetPassword from "./pages/ResetPassword";
+import DossierDetail from "./pages/DossierDetail";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -77,6 +78,11 @@ const App = () => (
             <Route path="/payment-redirect" element={
               <ProtectedRoute>
                 <PaymentRedirect />
+              </ProtectedRoute>
+            } />
+            <Route path="/case/:id" element={
+              <ProtectedRoute>
+                <DossierDetail />
               </ProtectedRoute>
             } />
             
