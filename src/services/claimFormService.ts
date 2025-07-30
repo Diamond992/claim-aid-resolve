@@ -185,6 +185,7 @@ export const processClaimFormData = async (authContext: any): Promise<boolean> =
       refus_date: cleanedData.refusalDate,
       montant_refuse: claimedAmount,
       motif_refus: cleanedData.refusalReason || null,
+      adresse_assureur: null,
       statut: 'nouveau' as const,
     };
 
@@ -233,42 +234,28 @@ export const processClaimFormData = async (authContext: any): Promise<boolean> =
       montant_refuse: dossierData.montant_refuse
     });
 
-    const { data: insertedDossier, error } = await supabase
-      .from('dossiers')
-      .insert(dossierData)
-      .select()
-      .single();
+    // Use the secure function to create dossier (bypasses RLS issues)
+    console.log('📝 Creating dossier via secure function...');
+    const { data: dossierId, error } = await supabase
+      .rpc('create_dossier_secure', {
+        p_client_id: dossierData.client_id,
+        p_type_sinistre: dossierData.type_sinistre,
+        p_date_sinistre: dossierData.date_sinistre,
+        p_montant_refuse: dossierData.montant_refuse,
+        p_refus_date: dossierData.refus_date,
+        p_police_number: dossierData.police_number,
+        p_compagnie_assurance: dossierData.compagnie_assurance,
+        p_motif_refus: dossierData.motif_refus,
+        p_adresse_assureur: dossierData.adresse_assureur
+      });
 
     if (error) {
-      console.error('❌ Database insert error:', {
-        code: error.code,
-        message: error.message,
-        details: error.details,
-        hint: error.hint
-      });
-      
-      // Enhanced error handling for RLS violations
-      if (error.code === '42501' || error.message?.includes('row-level security')) {
-        console.error('❌ RLS policy violation detected');
-        toast.error("Erreur de sécurité lors de la création du dossier. Veuillez vous reconnecter et réessayer.");
-        
-        // Force auth refresh on RLS error
-        try {
-          await supabase.auth.refreshSession();
-          console.log('🔄 Session refreshed after RLS error');
-        } catch (refreshError) {
-          console.error('❌ Failed to refresh session:', refreshError);
-        }
-      } else if (error.code === 'PGRST116' || error.message?.includes('JWT')) {
-        toast.error("Problème d'authentification lors de la création du dossier. Veuillez vous reconnecter.");
-      } else {
-        toast.error("Erreur lors de la création du dossier: " + (error.message || 'Erreur inconnue'));
-      }
-      
+      console.error('❌ Error creating dossier:', error);
+      toast.error(`Erreur lors de la création du dossier: ${error.message}`);
       return false;
     }
 
-    console.log('✅ Dossier created successfully:', insertedDossier.id);
+    console.log('✅ Dossier created successfully with ID:', dossierId);
 
     // Step 5: Clean up and show success
     localStorage.removeItem('claimFormData');

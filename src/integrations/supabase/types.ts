@@ -547,9 +547,27 @@ export type Database = {
         Args: { dossier_id: string; user_id: string }
         Returns: boolean
       }
+      create_dossier_secure: {
+        Args: {
+          p_client_id: string
+          p_type_sinistre: Database["public"]["Enums"]["type_sinistre"]
+          p_date_sinistre: string
+          p_montant_refuse: number
+          p_refus_date: string
+          p_police_number: string
+          p_compagnie_assurance: string
+          p_motif_refus?: string
+          p_adresse_assureur?: Json
+        }
+        Returns: string
+      }
       decrypt_sensitive_data: {
         Args: { encrypted_data: string }
         Returns: string
+      }
+      diagnose_auth_state: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
       }
       encrypt_sensitive_data: {
         Args: { data: string }
