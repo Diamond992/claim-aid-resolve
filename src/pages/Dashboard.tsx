@@ -239,7 +239,10 @@ const Dashboard = () => {
             </CardContent>
           </Card>
 
-          <Card className="hover:shadow-md transition-shadow">
+          <Card 
+            className="hover:shadow-md transition-shadow cursor-pointer"
+            onClick={() => navigate('/documents')}
+          >
             <CardContent className="p-6 text-center">
               <Upload className="h-12 w-12 text-emerald-600 mx-auto mb-3" />
               <h3 className="font-semibold text-lg mb-2">Mes Documents</h3>
@@ -247,7 +250,14 @@ const Dashboard = () => {
             </CardContent>
           </Card>
 
-          <Card className="hover:shadow-md transition-shadow">
+          <Card 
+            className="hover:shadow-md transition-shadow cursor-pointer"
+            onClick={() => {
+              if (dossiers.length > 0) {
+                navigate(`/case/${dossiers[0].id}/messages`);
+              }
+            }}
+          >
             <CardContent className="p-6 text-center">
               <MessageSquare className="h-12 w-12 text-orange-600 mx-auto mb-3" />
               <h3 className="font-semibold text-lg mb-2">Messages</h3>

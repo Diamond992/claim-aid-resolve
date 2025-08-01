@@ -17,6 +17,8 @@ import AdminDashboard from "./pages/AdminDashboard";
 import PasswordReset from "./pages/PasswordReset";
 import ResetPassword from "./pages/ResetPassword";
 import DossierDetail from "./pages/DossierDetail";
+import { Messages } from "./pages/Messages";
+import { UserDocuments } from "./pages/UserDocuments";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -83,6 +85,16 @@ const App = () => (
             <Route path="/case/:id" element={
               <ProtectedRoute>
                 <DossierDetail />
+              </ProtectedRoute>
+            } />
+            <Route path="/case/:id/messages" element={
+              <ProtectedRoute>
+                <Messages />
+              </ProtectedRoute>
+            } />
+            <Route path="/documents" element={
+              <ProtectedRoute>
+                <UserDocuments />
               </ProtectedRoute>
             } />
             

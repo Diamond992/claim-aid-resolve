@@ -3,14 +3,16 @@ import { useDossierDetail } from "@/hooks/useDossierDetail";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, FileText, Mail, Calendar, AlertTriangle } from "lucide-react";
+import { ArrowLeft, FileText, Mail, Calendar, AlertTriangle, Upload, Edit, MessageCircle } from "lucide-react";
+import { DocumentUpload } from "@/components/DocumentUpload";
+import { EditDossier } from "@/components/EditDossier";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 
 const DossierDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { data, isLoading, error } = useDossierDetail(id!);
+  const { data, isLoading, error, refetch } = useDossierDetail(id!);
 
   if (isLoading) {
     return (
@@ -78,6 +80,19 @@ const DossierDetail = () => {
           <Badge variant={getStatutBadgeVariant(dossier.statut)}>
             {dossier.statut.replace('_', ' ')}
           </Badge>
+        </div>
+
+        {/* Actions rapides */}
+        <div className="flex flex-wrap gap-4 mb-8">
+          <EditDossier dossier={dossier} onUpdateSuccess={refetch} />
+          <Button 
+            variant="outline" 
+            onClick={() => navigate(`/case/${id}/messages`)}
+            className="flex items-center gap-2"
+          >
+            <MessageCircle className="h-4 w-4" />
+            Messages
+          </Button>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-3">
@@ -163,6 +178,8 @@ const DossierDetail = () => {
 
           {/* Sidebar */}
           <div className="space-y-6">
+            {/* Upload de documents */}
+            <DocumentUpload dossierId={id || ''} onUploadSuccess={refetch} />
             {/* Messages/Courriers */}
             <Card>
               <CardHeader>
