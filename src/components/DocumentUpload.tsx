@@ -15,12 +15,10 @@ interface DocumentUploadProps {
 }
 
 const DOCUMENT_TYPES = [
-  { value: 'contrat_assurance', label: 'Contrat d\'assurance' },
+  { value: 'refus_assurance', label: 'Courrier de refus d\'assurance' },
+  { value: 'police', label: 'Contrat/Police d\'assurance' },
   { value: 'facture', label: 'Facture' },
-  { value: 'devis', label: 'Devis' },
-  { value: 'photo_degats', label: 'Photo des dégâts' },
-  { value: 'rapport_expert', label: 'Rapport d\'expert' },
-  { value: 'courrier_assureur', label: 'Courrier assureur' },
+  { value: 'expertise', label: 'Rapport d\'expertise' },
   { value: 'autre', label: 'Autre' }
 ];
 
