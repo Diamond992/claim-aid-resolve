@@ -641,6 +641,17 @@ export type Database = {
         Args: { webhook_url: string; payload_json: Json; max_retries?: number }
         Returns: boolean
       }
+      upload_document_secure: {
+        Args: {
+          p_dossier_id: string
+          p_nom_fichier: string
+          p_type_document: Database["public"]["Enums"]["type_document"]
+          p_taille_fichier: number
+          p_mime_type: string
+          p_url_stockage: string
+        }
+        Returns: string
+      }
       verify_auth_before_insert: {
         Args: Record<PropertyKey, never>
         Returns: boolean

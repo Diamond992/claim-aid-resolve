@@ -68,7 +68,7 @@ export const DocumentUpload = ({ dossierId, onUploadSuccess }: DocumentUploadPro
     }
   };
 
-  // Fonction d'upload avec retry automatique
+  // Fonction d'upload avec nouvelle approche sécurisée
   const uploadFileWithRetry = async (file: File, retries = 2): Promise<boolean> => {
     let lastError: Error | null = null;
     
@@ -77,7 +77,7 @@ export const DocumentUpload = ({ dossierId, onUploadSuccess }: DocumentUploadPro
         console.log(`📁 Tentative ${attempt + 1}/${retries + 1} pour ${file.name}`);
         const startTime = Date.now();
 
-        // 1. Upload vers storage avec timeout personnalisé
+        // 1. Upload vers storage
         const timestamp = Date.now();
         const fileExtension = file.name.split('.').pop();
         const uniqueFileName = `${file.name.replace(/\.[^/.]+$/, "")}_${timestamp}.${fileExtension}`;
@@ -85,22 +85,12 @@ export const DocumentUpload = ({ dossierId, onUploadSuccess }: DocumentUploadPro
         
         console.log(`📤 Upload vers storage: ${filePath}`);
         
-        // Promise avec timeout pour l'upload storage
-        const uploadPromise = supabase.storage
+        const { data: uploadData, error: uploadError } = await supabase.storage
           .from('documents')
           .upload(filePath, file, {
             cacheControl: '3600',
             upsert: false
           });
-
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Timeout upload storage')), 15000)
-        );
-
-        const { data: uploadData, error: uploadError } = await Promise.race([
-          uploadPromise,
-          timeoutPromise
-        ]) as any;
 
         if (uploadError) {
           console.error(`❌ Erreur upload storage pour ${file.name}:`, uploadError);
@@ -114,40 +104,28 @@ export const DocumentUpload = ({ dossierId, onUploadSuccess }: DocumentUploadPro
           .from('documents')
           .getPublicUrl(filePath);
 
-        // 3. Insertion en base avec timeout plus long
-        console.log(`💾 Insertion en base...`);
+        // 3. Utiliser la fonction sécurisée pour insertion (BYPASS RLS)
+        console.log(`💾 Insertion via fonction sécurisée...`);
         const dbStartTime = Date.now();
         
-        const insertPromise = supabase
-          .from('documents')
-          .insert({
-            dossier_id: dossierId,
-            nom_fichier: file.name,
-            type_document: documentType as any,
-            taille_fichier: file.size,
-            mime_type: file.type,
-            url_stockage: publicUrl,
-            uploaded_by: user.id
-          });
-
-        const dbTimeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Timeout insertion base')), 30000)
-        );
-
-        const { error: dbError } = await Promise.race([
-          insertPromise,
-          dbTimeoutPromise
-        ]) as any;
+        const { data: documentId, error: dbError } = await supabase.rpc('upload_document_secure', {
+          p_dossier_id: dossierId,
+          p_nom_fichier: file.name,
+          p_type_document: documentType as any,
+          p_taille_fichier: file.size,
+          p_mime_type: file.type,
+          p_url_stockage: publicUrl
+        });
 
         if (dbError) {
-          console.error(`❌ Erreur insertion DB pour ${file.name}:`, dbError);
+          console.error(`❌ Erreur fonction sécurisée pour ${file.name}:`, dbError);
           // Nettoyage du fichier uploadé
           console.log(`🧹 Nettoyage fichier storage...`);
           await supabase.storage.from('documents').remove([filePath]);
           throw dbError;
         }
 
-        console.log(`✅ Insertion DB réussie en ${Date.now() - dbStartTime}ms`);
+        console.log(`✅ Document créé avec ID: ${documentId} en ${Date.now() - dbStartTime}ms`);
         console.log(`🎉 Fichier ${file.name} traité avec succès en ${Date.now() - startTime}ms total`);
         
         return true;
@@ -157,7 +135,7 @@ export const DocumentUpload = ({ dossierId, onUploadSuccess }: DocumentUploadPro
         console.error(`❌ Tentative ${attempt + 1} échouée pour ${file.name}:`, error);
         
         if (attempt < retries) {
-          const waitTime = (attempt + 1) * 1000; // Backoff: 1s, 2s, 3s
+          const waitTime = (attempt + 1) * 1000;
           console.log(`⏱️ Attente ${waitTime}ms avant retry...`);
           await new Promise(resolve => setTimeout(resolve, waitTime));
         }
