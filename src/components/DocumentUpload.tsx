@@ -50,58 +50,111 @@ export const DocumentUpload = ({ dossierId, onUploadSuccess }: DocumentUploadPro
     }
 
     setIsUploading(true);
+    let uploadedCount = 0;
+    let failedFiles: string[] = [];
 
     try {
-      for (const file of selectedFiles) {
-        // 1. Upload file to Supabase Storage
-        const filePath = `${user.id}/${dossierId}/${file.name}`;
-        
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('documents')
-          .upload(filePath, file, {
-            cacheControl: '3600',
-            upsert: false
-          });
+      // Process files sequentially to avoid overwhelming the database
+      for (const [index, file] of selectedFiles.entries()) {
+        try {
+          console.log(`📁 Début upload fichier ${index + 1}/${selectedFiles.length}: ${file.name}`);
+          const startTime = Date.now();
 
-        if (uploadError) throw uploadError;
-
-        // 2. Get the public URL
-        const { data: { publicUrl } } = supabase.storage
-          .from('documents')
-          .getPublicUrl(filePath);
-
-        // 3. Insert document metadata
-        const { error: dbError } = await supabase
-          .from('documents')
-          .insert({
-            dossier_id: dossierId,
-            nom_fichier: file.name,
-            type_document: documentType as any,
-            taille_fichier: file.size,
-            mime_type: file.type,
-            url_stockage: publicUrl,
-            uploaded_by: user.id
-          });
-
-        if (dbError) {
-          // If database insert fails, clean up the uploaded file
-          await supabase.storage
+          // 1. Upload file to Supabase Storage with unique filename to avoid conflicts
+          const timestamp = Date.now();
+          const fileExtension = file.name.split('.').pop();
+          const uniqueFileName = `${file.name.replace(/\.[^/.]+$/, "")}_${timestamp}.${fileExtension}`;
+          const filePath = `${user.id}/${dossierId}/${uniqueFileName}`;
+          
+          console.log(`📤 Upload vers storage: ${filePath}`);
+          const { data: uploadData, error: uploadError } = await supabase.storage
             .from('documents')
-            .remove([filePath]);
-          throw dbError;
+            .upload(filePath, file, {
+              cacheControl: '3600',
+              upsert: false
+            });
+
+          if (uploadError) {
+            console.error(`❌ Erreur upload storage pour ${file.name}:`, uploadError);
+            throw uploadError;
+          }
+
+          console.log(`✅ Upload storage réussi en ${Date.now() - startTime}ms`);
+
+          // 2. Get the public URL
+          const { data: { publicUrl } } = supabase.storage
+            .from('documents')
+            .getPublicUrl(filePath);
+
+          console.log(`🔗 URL publique: ${publicUrl}`);
+
+          // 3. Insert document metadata with shorter timeout
+          console.log(`💾 Insertion en base...`);
+          const dbStartTime = Date.now();
+          
+          const { error: dbError } = await supabase
+            .from('documents')
+            .insert({
+              dossier_id: dossierId,
+              nom_fichier: file.name,
+              type_document: documentType as any,
+              taille_fichier: file.size,
+              mime_type: file.type,
+              url_stockage: publicUrl,
+              uploaded_by: user.id
+            });
+
+          if (dbError) {
+            console.error(`❌ Erreur insertion DB pour ${file.name}:`, dbError);
+            // If database insert fails, clean up the uploaded file
+            console.log(`🧹 Nettoyage fichier storage...`);
+            await supabase.storage
+              .from('documents')
+              .remove([filePath]);
+            throw dbError;
+          }
+
+          console.log(`✅ Insertion DB réussie en ${Date.now() - dbStartTime}ms`);
+          console.log(`🎉 Fichier ${file.name} traité avec succès en ${Date.now() - startTime}ms total`);
+          
+          uploadedCount++;
+
+          // Small delay between files to avoid overwhelming the database
+          if (index < selectedFiles.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+
+        } catch (fileError) {
+          console.error(`❌ Erreur pour le fichier ${file.name}:`, fileError);
+          failedFiles.push(file.name);
         }
       }
 
-      toast({
-        title: "Succès",
-        description: `${selectedFiles.length} document(s) uploadé(s) avec succès`
-      });
+      // Show results
+      if (uploadedCount > 0) {
+        toast({
+          title: "Succès",
+          description: `${uploadedCount} document(s) uploadé(s) avec succès${failedFiles.length > 0 ? `, ${failedFiles.length} échec(s)` : ''}`
+        });
+      }
 
-      setSelectedFiles([]);
-      setDocumentType('');
-      onUploadSuccess?.();
+      if (failedFiles.length > 0) {
+        toast({
+          title: "Attention",
+          description: `Échec d'upload pour: ${failedFiles.join(', ')}`,
+          variant: "destructive"
+        });
+      }
+
+      // Only clear files if at least one was uploaded successfully
+      if (uploadedCount > 0) {
+        setSelectedFiles([]);
+        setDocumentType('');
+        onUploadSuccess?.();
+      }
+
     } catch (error) {
-      console.error('Error uploading documents:', error);
+      console.error('❌ Erreur générale upload:', error);
       toast({
         title: "Erreur",
         description: error instanceof Error ? error.message : "Erreur lors de l'upload des documents",
