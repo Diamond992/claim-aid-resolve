@@ -580,6 +580,10 @@ export type Database = {
         Args: { dossier_id: string; user_id: string }
         Returns: boolean
       }
+      can_insert_document_optimized: {
+        Args: { dossier_id: string; user_id: string }
+        Returns: boolean
+      }
       create_dossier_secure: {
         Args: {
           p_client_id: string
