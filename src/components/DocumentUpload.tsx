@@ -39,6 +39,134 @@ export const DocumentUpload = ({ dossierId, onUploadSuccess }: DocumentUploadPro
     setSelectedFiles(prev => prev.filter((_, i) => i !== index));
   };
 
+  // Fonction de vérification côté client avant upload
+  const verifyAccessToDossier = async (): Promise<boolean> => {
+    try {
+      console.log('🔍 Vérification accès dossier côté client...');
+      const { data, error } = await supabase
+        .from('dossiers')
+        .select('client_id')
+        .eq('id', dossierId)
+        .maybeSingle();
+
+      if (error) {
+        console.error('❌ Erreur vérification accès:', error);
+        return false;
+      }
+
+      if (!data) {
+        console.error('❌ Dossier non trouvé');
+        return false;
+      }
+
+      const hasAccess = data.client_id === user?.id;
+      console.log(`✅ Accès dossier: ${hasAccess ? 'autorisé' : 'refusé'}`);
+      return hasAccess;
+    } catch (error) {
+      console.error('❌ Exception vérification accès:', error);
+      return false;
+    }
+  };
+
+  // Fonction d'upload avec retry automatique
+  const uploadFileWithRetry = async (file: File, retries = 2): Promise<boolean> => {
+    let lastError: Error | null = null;
+    
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        console.log(`📁 Tentative ${attempt + 1}/${retries + 1} pour ${file.name}`);
+        const startTime = Date.now();
+
+        // 1. Upload vers storage avec timeout personnalisé
+        const timestamp = Date.now();
+        const fileExtension = file.name.split('.').pop();
+        const uniqueFileName = `${file.name.replace(/\.[^/.]+$/, "")}_${timestamp}.${fileExtension}`;
+        const filePath = `${user.id}/${dossierId}/${uniqueFileName}`;
+        
+        console.log(`📤 Upload vers storage: ${filePath}`);
+        
+        // Promise avec timeout pour l'upload storage
+        const uploadPromise = supabase.storage
+          .from('documents')
+          .upload(filePath, file, {
+            cacheControl: '3600',
+            upsert: false
+          });
+
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Timeout upload storage')), 15000)
+        );
+
+        const { data: uploadData, error: uploadError } = await Promise.race([
+          uploadPromise,
+          timeoutPromise
+        ]) as any;
+
+        if (uploadError) {
+          console.error(`❌ Erreur upload storage pour ${file.name}:`, uploadError);
+          throw uploadError;
+        }
+
+        console.log(`✅ Upload storage réussi en ${Date.now() - startTime}ms`);
+
+        // 2. URL publique
+        const { data: { publicUrl } } = supabase.storage
+          .from('documents')
+          .getPublicUrl(filePath);
+
+        // 3. Insertion en base avec timeout plus long
+        console.log(`💾 Insertion en base...`);
+        const dbStartTime = Date.now();
+        
+        const insertPromise = supabase
+          .from('documents')
+          .insert({
+            dossier_id: dossierId,
+            nom_fichier: file.name,
+            type_document: documentType as any,
+            taille_fichier: file.size,
+            mime_type: file.type,
+            url_stockage: publicUrl,
+            uploaded_by: user.id
+          });
+
+        const dbTimeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Timeout insertion base')), 30000)
+        );
+
+        const { error: dbError } = await Promise.race([
+          insertPromise,
+          dbTimeoutPromise
+        ]) as any;
+
+        if (dbError) {
+          console.error(`❌ Erreur insertion DB pour ${file.name}:`, dbError);
+          // Nettoyage du fichier uploadé
+          console.log(`🧹 Nettoyage fichier storage...`);
+          await supabase.storage.from('documents').remove([filePath]);
+          throw dbError;
+        }
+
+        console.log(`✅ Insertion DB réussie en ${Date.now() - dbStartTime}ms`);
+        console.log(`🎉 Fichier ${file.name} traité avec succès en ${Date.now() - startTime}ms total`);
+        
+        return true;
+
+      } catch (error) {
+        lastError = error as Error;
+        console.error(`❌ Tentative ${attempt + 1} échouée pour ${file.name}:`, error);
+        
+        if (attempt < retries) {
+          const waitTime = (attempt + 1) * 1000; // Backoff: 1s, 2s, 3s
+          console.log(`⏱️ Attente ${waitTime}ms avant retry...`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+        }
+      }
+    }
+    
+    throw lastError || new Error('Upload échoué après plusieurs tentatives');
+  };
+
   const handleUpload = async () => {
     if (!user || selectedFiles.length === 0 || !documentType) {
       toast({
@@ -49,88 +177,41 @@ export const DocumentUpload = ({ dossierId, onUploadSuccess }: DocumentUploadPro
       return;
     }
 
+    // Vérification d'accès avant de commencer
+    const hasAccess = await verifyAccessToDossier();
+    if (!hasAccess) {
+      toast({
+        title: "Erreur d'autorisation",
+        description: "Vous n'avez pas accès à ce dossier",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setIsUploading(true);
     let uploadedCount = 0;
     let failedFiles: string[] = [];
 
     try {
-      // Process files sequentially to avoid overwhelming the database
+      // Traitement séquentiel un fichier à la fois pour éviter surcharge
       for (const [index, file] of selectedFiles.entries()) {
         try {
-          console.log(`📁 Début upload fichier ${index + 1}/${selectedFiles.length}: ${file.name}`);
-          const startTime = Date.now();
-
-          // 1. Upload file to Supabase Storage with unique filename to avoid conflicts
-          const timestamp = Date.now();
-          const fileExtension = file.name.split('.').pop();
-          const uniqueFileName = `${file.name.replace(/\.[^/.]+$/, "")}_${timestamp}.${fileExtension}`;
-          const filePath = `${user.id}/${dossierId}/${uniqueFileName}`;
-          
-          console.log(`📤 Upload vers storage: ${filePath}`);
-          const { data: uploadData, error: uploadError } = await supabase.storage
-            .from('documents')
-            .upload(filePath, file, {
-              cacheControl: '3600',
-              upsert: false
-            });
-
-          if (uploadError) {
-            console.error(`❌ Erreur upload storage pour ${file.name}:`, uploadError);
-            throw uploadError;
-          }
-
-          console.log(`✅ Upload storage réussi en ${Date.now() - startTime}ms`);
-
-          // 2. Get the public URL
-          const { data: { publicUrl } } = supabase.storage
-            .from('documents')
-            .getPublicUrl(filePath);
-
-          console.log(`🔗 URL publique: ${publicUrl}`);
-
-          // 3. Insert document metadata with shorter timeout
-          console.log(`💾 Insertion en base...`);
-          const dbStartTime = Date.now();
-          
-          const { error: dbError } = await supabase
-            .from('documents')
-            .insert({
-              dossier_id: dossierId,
-              nom_fichier: file.name,
-              type_document: documentType as any,
-              taille_fichier: file.size,
-              mime_type: file.type,
-              url_stockage: publicUrl,
-              uploaded_by: user.id
-            });
-
-          if (dbError) {
-            console.error(`❌ Erreur insertion DB pour ${file.name}:`, dbError);
-            // If database insert fails, clean up the uploaded file
-            console.log(`🧹 Nettoyage fichier storage...`);
-            await supabase.storage
-              .from('documents')
-              .remove([filePath]);
-            throw dbError;
-          }
-
-          console.log(`✅ Insertion DB réussie en ${Date.now() - dbStartTime}ms`);
-          console.log(`🎉 Fichier ${file.name} traité avec succès en ${Date.now() - startTime}ms total`);
-          
+          await uploadFileWithRetry(file);
           uploadedCount++;
 
-          // Small delay between files to avoid overwhelming the database
+          // Pause entre fichiers pour éviter surcharge DB
           if (index < selectedFiles.length - 1) {
-            await new Promise(resolve => setTimeout(resolve, 100));
+            console.log('⏱️ Pause 500ms entre fichiers...');
+            await new Promise(resolve => setTimeout(resolve, 500));
           }
 
         } catch (fileError) {
-          console.error(`❌ Erreur pour le fichier ${file.name}:`, fileError);
+          console.error(`❌ Échec définitif pour ${file.name}:`, fileError);
           failedFiles.push(file.name);
         }
       }
 
-      // Show results
+      // Résultats
       if (uploadedCount > 0) {
         toast({
           title: "Succès",
@@ -141,12 +222,12 @@ export const DocumentUpload = ({ dossierId, onUploadSuccess }: DocumentUploadPro
       if (failedFiles.length > 0) {
         toast({
           title: "Attention",
-          description: `Échec d'upload pour: ${failedFiles.join(', ')}`,
+          description: `Échec d'upload pour: ${failedFiles.join(', ')}. Vérifiez votre connexion et réessayez.`,
           variant: "destructive"
         });
       }
 
-      // Only clear files if at least one was uploaded successfully
+      // Reset uniquement si au moins un fichier uploadé
       if (uploadedCount > 0) {
         setSelectedFiles([]);
         setDocumentType('');
