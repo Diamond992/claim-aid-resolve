@@ -68,17 +68,15 @@ export const DocumentUpload = ({ dossierId, onUploadSuccess }: DocumentUploadPro
     }
   };
 
-  const uploadFileWithRetry = async (file: File, retryAttempt = 1): Promise<boolean> => {
-    let uploadData: any = null;
-    
+  const uploadFileWithRetry = async (file: File): Promise<boolean> => {
+    const timestamp = Date.now();
+    const fileName = `${timestamp}_${file.name}`;
+    const filePath = `${user?.id}/${dossierId}/${fileName}`;
+
+    console.log(`📁 Upload de: ${file.name}`);
+
     try {
-      const timestamp = Date.now();
-      const fileName = `${timestamp}_${file.name}`;
-      const filePath = `${user?.id}/${dossierId}/${fileName}`;
-
-      console.log(`📁 Starting upload for ${file.name} (attempt ${retryAttempt})`);
-
-      // Upload vers Supabase Storage d'abord
+      // 1. Upload vers Supabase Storage
       const { data: storageData, error: uploadError } = await supabase.storage
         .from('documents')
         .upload(filePath, file, {
@@ -87,93 +85,50 @@ export const DocumentUpload = ({ dossierId, onUploadSuccess }: DocumentUploadPro
         });
 
       if (uploadError) {
-        console.error('❌ Storage upload failed:', uploadError);
-        throw new Error(`Storage upload failed: ${uploadError.message}`);
+        console.error('❌ Erreur storage:', uploadError);
+        throw new Error(`Erreur storage: ${uploadError.message}`);
       }
 
-      uploadData = storageData;
-      console.log('✅ File uploaded to storage:', uploadData.path);
-
-      // Obtenir l'URL publique
+      console.log('✅ Fichier uploadé dans storage');
+      
+      // 2. Obtenir l'URL publique
       const { data: { publicUrl } } = supabase.storage
         .from('documents')
-        .getPublicUrl(uploadData.path);
+        .getPublicUrl(storageData.path);
 
-      console.log('📋 Attempting database insertion...');
+      // 3. Enregistrement en base via fonction sécurisée
+      console.log('📋 Enregistrement en base...');
+      const { data: documentData, error: dbError } = await supabase
+        .rpc('upload_document_secure', {
+          p_dossier_id: dossierId,
+          p_nom_fichier: file.name,
+          p_type_document: documentType as any,
+          p_taille_fichier: file.size,
+          p_mime_type: file.type,
+          p_url_stockage: publicUrl
+        });
 
-      // Tentative avec la fonction sécurisée (timeout 30s)
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 30000);
-
-        const { data: documentData, error: dbError } = await supabase
-          .rpc('upload_document_secure', {
-            p_dossier_id: dossierId,
-            p_nom_fichier: file.name,
-            p_type_document: documentType as any,
-            p_taille_fichier: file.size,
-            p_mime_type: file.type,
-            p_url_stockage: publicUrl
-          });
-
-        clearTimeout(timeoutId);
-
-        if (dbError) {
-          throw dbError;
-        }
-
-        console.log('✅ Document inserted via secure function:', documentData);
-        return true;
-
-      } catch (dbError) {
-        console.warn('⚠️ Secure function failed, trying direct insert:', dbError);
+      if (dbError) {
+        console.error('❌ Erreur base de données:', dbError);
         
-        // Fallback: insertion directe
-        const { data: fallbackData, error: fallbackError } = await supabase
-          .from('documents')
-          .insert({
-            dossier_id: dossierId,
-            nom_fichier: file.name,
-            type_document: documentType as any,
-            taille_fichier: file.size,
-            mime_type: file.type,
-            url_stockage: publicUrl,
-            uploaded_by: user?.id
-          })
-          .select()
-          .single();
-
-        if (fallbackError) {
-          console.error('❌ Direct insert also failed:', fallbackError);
-          throw new Error(`Database insertion failed: ${fallbackError.message}`);
-        }
-
-        console.log('✅ Document inserted via direct insert:', fallbackData);
-        return true;
+        // Nettoyer le storage
+        await supabase.storage.from('documents').remove([storageData.path]);
+        console.log('🧹 Storage nettoyé');
+        
+        throw new Error(`Erreur base de données: ${dbError.message}`);
       }
+
+      if (!documentData) {
+        console.error('❌ Aucun ID retourné');
+        await supabase.storage.from('documents').remove([storageData.path]);
+        throw new Error('Document non enregistré');
+      }
+
+      console.log('✅ Document enregistré avec succès:', documentData);
+      return true;
 
     } catch (error) {
-      console.error(`❌ Upload attempt ${retryAttempt} failed for ${file.name}:`, error);
-      
-      // Nettoyer le fichier si l'insertion en base a échoué mais que le storage a réussi
-      if (uploadData?.path) {
-        console.log('🧹 Cleaning up uploaded file from storage...');
-        await supabase.storage
-          .from('documents')
-          .remove([uploadData.path])
-          .catch(cleanupError => 
-            console.warn('⚠️ Failed to cleanup file:', cleanupError)
-          );
-      }
-      
-      // Retry logic
-      if (retryAttempt < 3) {
-        console.log(`🔄 Retrying upload for ${file.name} (attempt ${retryAttempt + 1}/3)...`);
-        await new Promise(resolve => setTimeout(resolve, 1000 * retryAttempt));
-        return uploadFileWithRetry(file, retryAttempt + 1);
-      }
-      
-      console.error(`❌ Final failure for ${file.name} after ${retryAttempt} attempts`);
+      console.error(`❌ Erreur upload ${file.name}:`, error);
       return false;
     }
   };
