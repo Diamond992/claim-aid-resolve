@@ -93,14 +93,11 @@ const UserManagement = () => {
 
     setIsInviting(true);
     try {
-      console.log('Creating admin invitation for:', inviteEmail);
-      
       const { data, error } = await supabase.rpc('generate_admin_invite', {
         admin_email: inviteEmail
       });
 
       if (error) {
-        console.error('Error creating invite:', error);
         throw error;
       }
 
@@ -115,7 +112,6 @@ const UserManagement = () => {
         }
       });
 
-      console.log('Invitation created successfully:', inviteUrl);
       toast.success(`Invitation créée ! Partagez ce lien : ${inviteUrl}`, {
         duration: 10000
       });
@@ -124,7 +120,6 @@ const UserManagement = () => {
       setInviteRole("user");
       setDialogOpen(false);
     } catch (error: any) {
-      console.error('Error creating invite:', error);
       toast.error(error.message || "Erreur lors de la création de l'invitation");
     } finally {
       setIsInviting(false);
@@ -133,33 +128,20 @@ const UserManagement = () => {
 
   const handleChangeUserRole = async (userId: string, newRole: AppRole) => {
     try {
-      console.log('Changing user role:', { userId, newRole });
-      
-      const { error } = await supabase
-        .from('user_roles')
-        .upsert({ 
-          user_id: userId, 
-          role: newRole 
-        }, {
-          onConflict: 'user_id'
-        });
-
-      if (error) {
-        console.error('Error updating user role:', error);
-        throw error;
-      }
-
-      await supabase.rpc('log_admin_action', {
-        action_type: 'USER_ROLE_CHANGED',
-        target_user: userId,
-        action_details: { new_role: newRole }
+      const { data, error } = await supabase.rpc('secure_change_user_role', {
+        target_user_id: userId,
+        new_role: newRole
       });
 
-      toast.success(`Rôle utilisateur mis à jour avec succès`);
+      if (error) {
+        toast.error(`Erreur: ${error.message}`);
+        return;
+      }
+
+      toast.success("Rôle modifié avec succès");
       await fetchUsers();
     } catch (error: any) {
-      console.error('Error updating user role:', error);
-      toast.error(error.message || "Erreur lors de la modification du rôle");
+      toast.error(`Erreur: ${error.message}`);
     }
   };
 

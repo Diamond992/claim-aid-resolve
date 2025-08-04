@@ -96,8 +96,7 @@ export const DocumentUpload = ({ dossierId, onUploadSuccess }: DocumentUploadPro
         .from('documents')
         .getPublicUrl(storageData.path);
 
-      // 3. Insertion directe en base (RLS désactivé)
-      console.log('📋 Enregistrement en base...');
+      // 3. Enregistrement en base sécurisé (RLS activé)
       const { data: documentData, error: dbError } = await supabase
         .from('documents')
         .insert({
