@@ -96,17 +96,21 @@ export const DocumentUpload = ({ dossierId, onUploadSuccess }: DocumentUploadPro
         .from('documents')
         .getPublicUrl(storageData.path);
 
-      // 3. Enregistrement en base via fonction sécurisée
+      // 3. Insertion directe en base (RLS désactivé)
       console.log('📋 Enregistrement en base...');
       const { data: documentData, error: dbError } = await supabase
-        .rpc('upload_document_secure', {
-          p_dossier_id: dossierId,
-          p_nom_fichier: file.name,
-          p_type_document: documentType as any,
-          p_taille_fichier: file.size,
-          p_mime_type: file.type,
-          p_url_stockage: publicUrl
-        });
+        .from('documents')
+        .insert({
+          dossier_id: dossierId,
+          nom_fichier: file.name,
+          type_document: documentType as any,
+          taille_fichier: file.size,
+          mime_type: file.type,
+          url_stockage: publicUrl,
+          uploaded_by: user?.id
+        })
+        .select()
+        .single();
 
       if (dbError) {
         console.error('❌ Erreur base de données:', dbError);
@@ -119,7 +123,7 @@ export const DocumentUpload = ({ dossierId, onUploadSuccess }: DocumentUploadPro
       }
 
       if (!documentData) {
-        console.error('❌ Aucun ID retourné');
+        console.error('❌ Aucune donnée retournée');
         await supabase.storage.from('documents').remove([storageData.path]);
         throw new Error('Document non enregistré');
       }
