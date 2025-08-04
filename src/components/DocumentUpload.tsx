@@ -42,7 +42,6 @@ export const DocumentUpload = ({ dossierId, onUploadSuccess }: DocumentUploadPro
   // Fonction de vérification côté client avant upload
   const verifyAccessToDossier = async (): Promise<boolean> => {
     try {
-      console.log('🔍 Vérification accès dossier côté client...');
       const { data, error } = await supabase
         .from('dossiers')
         .select('client_id')
@@ -50,20 +49,19 @@ export const DocumentUpload = ({ dossierId, onUploadSuccess }: DocumentUploadPro
         .maybeSingle();
 
       if (error) {
-        console.error('❌ Erreur vérification accès:', error);
+        console.error('Erreur vérification accès:', error);
         return false;
       }
 
       if (!data) {
-        console.error('❌ Dossier non trouvé');
+        console.error('Dossier non trouvé');
         return false;
       }
 
       const hasAccess = data.client_id === user?.id;
-      console.log(`✅ Accès dossier: ${hasAccess ? 'autorisé' : 'refusé'}`);
       return hasAccess;
     } catch (error) {
-      console.error('❌ Exception vérification accès:', error);
+      console.error('Exception vérification accès:', error);
       return false;
     }
   };
@@ -72,8 +70,6 @@ export const DocumentUpload = ({ dossierId, onUploadSuccess }: DocumentUploadPro
     const timestamp = Date.now();
     const fileName = `${timestamp}_${file.name}`;
     const filePath = `${user?.id}/${dossierId}/${fileName}`;
-
-    console.log(`📁 Upload de: ${file.name}`);
 
     try {
       // 1. Upload vers Supabase Storage
@@ -85,11 +81,9 @@ export const DocumentUpload = ({ dossierId, onUploadSuccess }: DocumentUploadPro
         });
 
       if (uploadError) {
-        console.error('❌ Erreur storage:', uploadError);
+        console.error('Erreur storage:', uploadError);
         throw new Error(`Erreur storage: ${uploadError.message}`);
       }
-
-      console.log('✅ Fichier uploadé dans storage');
       
       // 2. Obtenir l'URL publique
       const { data: { publicUrl } } = supabase.storage
@@ -112,26 +106,24 @@ export const DocumentUpload = ({ dossierId, onUploadSuccess }: DocumentUploadPro
         .single();
 
       if (dbError) {
-        console.error('❌ Erreur base de données:', dbError);
+        console.error('Erreur base de données:', dbError);
         
         // Nettoyer le storage
         await supabase.storage.from('documents').remove([storageData.path]);
-        console.log('🧹 Storage nettoyé');
         
         throw new Error(`Erreur base de données: ${dbError.message}`);
       }
 
       if (!documentData) {
-        console.error('❌ Aucune donnée retournée');
+        console.error('Aucune donnée retournée');
         await supabase.storage.from('documents').remove([storageData.path]);
         throw new Error('Document non enregistré');
       }
 
-      console.log('✅ Document enregistré avec succès:', documentData);
       return true;
 
     } catch (error) {
-      console.error(`❌ Erreur upload ${file.name}:`, error);
+      console.error(`Erreur upload ${file.name}:`, error);
       return false;
     }
   };
@@ -164,21 +156,16 @@ export const DocumentUpload = ({ dossierId, onUploadSuccess }: DocumentUploadPro
     try {
       // Traitement séquentiel un fichier à la fois pour éviter surcharge
       for (const [index, file] of selectedFiles.entries()) {
-        console.log(`📤 Processing file ${index + 1}/${selectedFiles.length}: ${file.name}`);
-        
         const success = await uploadFileWithRetry(file);
         
         if (success) {
           uploadedCount++;
-          console.log(`✅ Successfully uploaded: ${file.name}`);
         } else {
           failedFiles.push(file.name);
-          console.error(`❌ Failed to upload: ${file.name}`);
         }
 
         // Pause entre fichiers pour éviter surcharge DB
         if (index < selectedFiles.length - 1) {
-          console.log('⏱️ Pause 500ms entre fichiers...');
           await new Promise(resolve => setTimeout(resolve, 500));
         }
       }
@@ -207,7 +194,7 @@ export const DocumentUpload = ({ dossierId, onUploadSuccess }: DocumentUploadPro
       }
 
     } catch (error) {
-      console.error('❌ Erreur générale upload:', error);
+      console.error('Erreur générale upload:', error);
       toast({
         title: "Erreur",
         description: error instanceof Error ? error.message : "Erreur lors de l'upload des documents",
