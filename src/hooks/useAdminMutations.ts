@@ -171,6 +171,53 @@ export const useAdminMutations = () => {
     },
   });
 
+  // Update dossier information
+  const updateDossierMutation = useMutation({
+    mutationFn: async ({ id, updates }: { id: string; updates: any }) => {
+      const { data, error } = await supabase
+        .from('dossiers')
+        .update({
+          ...updates,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-all-dossiers'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-dossiers-minimal'] });
+      toast.success("Dossier mis à jour avec succès");
+    },
+    onError: (error) => {
+      console.error('Error updating dossier:', error);
+      toast.error("Erreur lors de la mise à jour du dossier");
+    },
+  });
+
+  // Delete document
+  const deleteDocumentMutation = useMutation({
+    mutationFn: async (documentId: string) => {
+      const { error } = await supabase
+        .from('documents')
+        .delete()
+        .eq('id', documentId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-all-dossiers'] });
+      toast.success("Document supprimé avec succès");
+    },
+    onError: (error) => {
+      console.error('Error deleting document:', error);
+      toast.error("Erreur lors de la suppression du document");
+    },
+  });
+
   return {
     updateCourrierMutation,
     updateEcheanceStatusMutation,
@@ -178,5 +225,7 @@ export const useAdminMutations = () => {
     createEcheanceMutation,
     deleteDossierMutation,
     testWebhookMutation,
+    updateDossierMutation,
+    deleteDocumentMutation,
   };
 };

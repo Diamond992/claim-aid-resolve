@@ -99,6 +99,45 @@ export const useAdminData = () => {
     },
   });
 
+  // Fetch all dossiers with full details for admin management
+  const { data: allDossiers = [], isLoading: dossiersLoading } = useQuery({
+    queryKey: ['admin-all-dossiers'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('dossiers')
+        .select(`
+          *,
+          profiles (
+            first_name,
+            last_name,
+            email
+          ),
+          documents:documents (
+            id,
+            nom_fichier,
+            type_document,
+            created_at
+          ),
+          courriers:courriers_projets (
+            id,
+            type_courrier,
+            statut,
+            created_at
+          ),
+          echeances:echeances (
+            id,
+            type_echeance,
+            statut,
+            date_limite
+          )
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data;
+    },
+  });
+
   // Fetch templates data
   const { data: templates = [] } = useQuery({
     queryKey: ['admin-templates'],
@@ -113,13 +152,14 @@ export const useAdminData = () => {
     },
   });
 
-  const isLoading = courriersLoading || echeancesLoading || paymentsLoading;
+  const isLoading = courriersLoading || echeancesLoading || paymentsLoading || dossiersLoading;
 
   return {
     courriers,
     echeances,
     payments,
     dossiers,
+    allDossiers,
     templates,
     isLoading,
   };

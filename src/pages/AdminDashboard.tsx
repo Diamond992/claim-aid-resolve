@@ -11,7 +11,7 @@ import { Navigate, useNavigate } from "react-router-dom";
 
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState("courriers");
-  const { courriers, echeances, payments, dossiers, templates, isLoading } = useAdminData();
+  const { courriers, echeances, payments, dossiers, allDossiers, templates, isLoading } = useAdminData();
   const { user, signOut, isLoading: authLoading } = useAuth();
   const { isAdmin, isLoading: roleLoading } = useUserRole();
   const navigate = useNavigate();
@@ -20,6 +20,9 @@ const AdminDashboard = () => {
     updateEcheanceStatusMutation,
     updatePaymentStatusMutation,
     createEcheanceMutation,
+    deleteDossierMutation,
+    updateDossierMutation,
+    deleteDocumentMutation,
   } = useAdminMutations();
 
   // Monitor auth state and redirect if user becomes null
@@ -64,6 +67,22 @@ const AdminDashboard = () => {
     createEcheanceMutation.mutate(echeanceData);
   };
 
+  const handleEditDossier = (id: string, updates: any) => {
+    updateDossierMutation.mutate({ id, updates });
+  };
+
+  const handleDeleteDossier = (id: string) => {
+    if (confirm('Êtes-vous sûr de vouloir supprimer ce dossier ? Cette action est irréversible.')) {
+      deleteDossierMutation.mutate(id);
+    }
+  };
+
+  const handleDeleteDocument = (id: string) => {
+    if (confirm('Êtes-vous sûr de vouloir supprimer ce document ?')) {
+      deleteDocumentMutation.mutate(id);
+    }
+  };
+
   const handleLogout = async () => {
     await signOut();
     navigate('/login');
@@ -93,6 +112,7 @@ const AdminDashboard = () => {
             echeances={echeances}
             payments={payments}
             dossiers={dossiers}
+            allDossiers={allDossiers}
             templates={templates}
             isLoading={isLoading}
             onCourrierValidate={(id) => handleCourrierStatusUpdate(id, 'valide_pret_envoi')}
@@ -100,6 +120,9 @@ const AdminDashboard = () => {
             onEcheanceStatusUpdate={handleEcheanceStatusUpdate}
             onPaymentStatusUpdate={handlePaymentStatusUpdate}
             onCreateEcheance={handleCreateEcheance}
+            onEditDossier={handleEditDossier}
+            onDeleteDossier={handleDeleteDossier}
+            onDeleteDocument={handleDeleteDocument}
           />
         </div>
       </div>
