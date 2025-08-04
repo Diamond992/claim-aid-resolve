@@ -7,6 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Search, Download, Trash2, FileText, Eye } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface AdminDocumentsListProps {
   dossiers: any[];
@@ -63,6 +65,63 @@ const AdminDocumentsList = ({
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  const handleSecureDocumentView = async (doc: any) => {
+    try {
+      // Extract the file path from the full URL
+      const filePath = doc.url_stockage.split('/documents/')[1];
+      
+      const { data, error } = await supabase.storage
+        .from('documents')
+        .createSignedUrl(filePath, 3600); // 1 hour expiry
+
+      if (error) {
+        console.error('Error creating signed URL:', error);
+        toast.error('Erreur lors de l\'accès au document');
+        return;
+      }
+
+      if (data?.signedUrl) {
+        window.open(data.signedUrl, '_blank');
+      }
+    } catch (error) {
+      console.error('Error viewing document:', error);
+      toast.error('Erreur lors de l\'ouverture du document');
+    }
+  };
+
+  const handleSecureDocumentDownload = async (doc: any) => {
+    try {
+      // Extract the file path from the full URL
+      const filePath = doc.url_stockage.split('/documents/')[1];
+      
+      const { data, error } = await supabase.storage
+        .from('documents')
+        .download(filePath);
+
+      if (error) {
+        console.error('Error downloading document:', error);
+        toast.error('Erreur lors du téléchargement');
+        return;
+      }
+
+      if (data) {
+        const blob = new Blob([data], { type: doc.mime_type });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = doc.nom_fichier;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        toast.success('Document téléchargé');
+      }
+    } catch (error) {
+      console.error('Error downloading document:', error);
+      toast.error('Erreur lors du téléchargement');
+    }
   };
 
   if (isLoading) {
@@ -166,14 +225,16 @@ const AdminDocumentsList = ({
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => onViewDocument(doc.url_stockage)}
+                    onClick={() => handleSecureDocumentView(doc)}
+                    title="Voir le document"
                   >
                     <Eye className="h-4 w-4" />
                   </Button>
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => window.open(doc.url_stockage, '_blank')}
+                    onClick={() => handleSecureDocumentDownload(doc)}
+                    title="Télécharger le document"
                   >
                     <Download className="h-4 w-4" />
                   </Button>
@@ -182,6 +243,7 @@ const AdminDocumentsList = ({
                     size="sm"
                     onClick={() => onDeleteDocument(doc.id)}
                     className="text-destructive hover:text-destructive"
+                    title="Supprimer le document"
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
