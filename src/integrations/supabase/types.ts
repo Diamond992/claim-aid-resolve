@@ -184,6 +184,39 @@ export type Database = {
           },
         ]
       }
+      document_access_log: {
+        Row: {
+          action: string
+          created_at: string | null
+          document_id: string
+          dossier_id: string
+          id: string
+          ip_address: unknown | null
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string | null
+          document_id: string
+          dossier_id: string
+          id?: string
+          ip_address?: unknown | null
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string | null
+          document_id?: string
+          dossier_id?: string
+          id?: string
+          ip_address?: unknown | null
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       documents: {
         Row: {
           created_at: string
@@ -641,16 +674,12 @@ export type Database = {
         Args: { webhook_url: string; payload_json: Json; max_retries?: number }
         Returns: boolean
       }
-      upload_document_secure: {
+      secure_change_user_role: {
         Args: {
-          p_dossier_id: string
-          p_nom_fichier: string
-          p_type_document: Database["public"]["Enums"]["type_document"]
-          p_taille_fichier: number
-          p_mime_type: string
-          p_url_stockage: string
+          target_user_id: string
+          new_role: Database["public"]["Enums"]["app_role"]
         }
-        Returns: string
+        Returns: boolean
       }
       verify_auth_before_insert: {
         Args: Record<PropertyKey, never>
