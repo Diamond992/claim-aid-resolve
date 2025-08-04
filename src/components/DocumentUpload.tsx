@@ -53,8 +53,25 @@ export const DocumentUpload = ({ dossierId, onUploadSuccess }: DocumentUploadPro
 
     try {
       for (const file of selectedFiles) {
-        // Simuler l'upload (en réalité, il faudrait utiliser Supabase Storage)
-        const { data, error } = await supabase
+        // 1. Upload file to Supabase Storage
+        const filePath = `${user.id}/${dossierId}/${file.name}`;
+        
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('documents')
+          .upload(filePath, file, {
+            cacheControl: '3600',
+            upsert: false
+          });
+
+        if (uploadError) throw uploadError;
+
+        // 2. Get the public URL
+        const { data: { publicUrl } } = supabase.storage
+          .from('documents')
+          .getPublicUrl(filePath);
+
+        // 3. Insert document metadata
+        const { error: dbError } = await supabase
           .from('documents')
           .insert({
             dossier_id: dossierId,
@@ -62,11 +79,17 @@ export const DocumentUpload = ({ dossierId, onUploadSuccess }: DocumentUploadPro
             type_document: documentType as any,
             taille_fichier: file.size,
             mime_type: file.type,
-            url_stockage: `/storage/documents/${dossierId}/${file.name}`,
+            url_stockage: publicUrl,
             uploaded_by: user.id
           });
 
-        if (error) throw error;
+        if (dbError) {
+          // If database insert fails, clean up the uploaded file
+          await supabase.storage
+            .from('documents')
+            .remove([filePath]);
+          throw dbError;
+        }
       }
 
       toast({
@@ -81,7 +104,7 @@ export const DocumentUpload = ({ dossierId, onUploadSuccess }: DocumentUploadPro
       console.error('Error uploading documents:', error);
       toast({
         title: "Erreur",
-        description: "Erreur lors de l'upload des documents",
+        description: error instanceof Error ? error.message : "Erreur lors de l'upload des documents",
         variant: "destructive"
       });
     } finally {
