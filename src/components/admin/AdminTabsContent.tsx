@@ -12,6 +12,7 @@ import AdminDossiersList from "./AdminDossiersList";
 import AdminDocumentsList from "./AdminDocumentsList";
 import AdminEditDossier from "./AdminEditDossier";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 interface AdminTabsContentProps {
   courriers: any[];
@@ -54,10 +55,11 @@ export const AdminTabsContent = ({
   onDeleteDocument
 }: AdminTabsContentProps) => {
   const [editingDossier, setEditingDossier] = useState<any>(null);
+  const navigate = useNavigate();
 
   const handleViewDossier = (dossierId: string) => {
-    // Navigate to dossier detail page
-    window.open(`/dossier/${dossierId}`, '_blank');
+    // Navigate to correct dossier detail route
+    navigate(`/case/${dossierId}`);
   };
 
   const handleEditDossier = (dossierId: string) => {
@@ -71,7 +73,9 @@ export const AdminTabsContent = ({
   };
 
   const handleViewDocument = (documentUrl: string) => {
-    window.open(documentUrl, '_blank');
+    if (documentUrl) {
+      window.open(documentUrl, '_blank');
+    }
   };
   return (
     <Tabs defaultValue="courriers" className="w-full">
