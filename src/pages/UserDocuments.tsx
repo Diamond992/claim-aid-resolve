@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, FileText, Download, Eye } from 'lucide-react';
+import { ArrowLeft, FileText, Eye, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -18,6 +18,7 @@ interface Document {
   mime_type: string;
   created_at: string;
   dossier_id: string;
+  url_stockage?: string;
   dossier: {
     id: string;
     type_sinistre: string;
@@ -43,6 +44,13 @@ const formatFileSize = (bytes: number) => {
   const sizes = ['Bytes', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+};
+
+const getFilePathFromUrl = (url?: string) => {
+  if (!url) return null;
+  const marker = '/documents/';
+  const idx = url.indexOf(marker);
+  return idx !== -1 ? url.slice(idx + marker.length) : url;
 };
 
 export const UserDocuments = () => {
@@ -90,13 +98,54 @@ export const UserDocuments = () => {
     navigate(`/case/${dossierId}`);
   };
 
-  const handleDownload = (document: Document) => {
-    // Simuler le téléchargement (en réalité, il faudrait récupérer le fichier depuis Supabase Storage)
-    toast({
-      title: "Téléchargement",
-      description: `Téléchargement de ${document.nom_fichier}...`
-    });
-  };
+const handleViewDocument = async (document: Document) => {
+  try {
+    const filePath = getFilePathFromUrl(document.url_stockage);
+    if (!filePath) {
+      toast({
+        title: "Erreur",
+        description: "Chemin du fichier introuvable",
+        variant: "destructive",
+      });
+      return;
+    }
+    const { data, error } = await supabase.storage
+      .from('documents')
+      .createSignedUrl(filePath, 3600);
+    if (error) throw error;
+    if (data?.signedUrl) window.open(data.signedUrl, '_blank');
+  } catch (err) {
+    console.error('Erreur ouverture document:', err);
+    toast({ title: "Erreur", description: "Impossible d'ouvrir le document", variant: "destructive" });
+  }
+};
+
+const handleDeleteDocument = async (document: Document) => {
+  try {
+    const confirmed = window.confirm("Supprimer ce document ? Cette action est irréversible.");
+    if (!confirmed) return;
+
+    const filePath = getFilePathFromUrl(document.url_stockage);
+    if (filePath) {
+      const { error: storageError } = await supabase.storage.from('documents').remove([filePath]);
+      if (storageError) {
+        console.warn('Erreur suppression fichier (ignorée):', storageError.message);
+      }
+    }
+
+    const { error: dbError } = await supabase
+      .from('documents')
+      .delete()
+      .eq('id', document.id);
+    if (dbError) throw dbError;
+
+    setDocuments((prev) => prev.filter((d) => d.id !== document.id));
+    toast({ title: "Supprimé", description: "Le document a été supprimé." });
+  } catch (err) {
+    console.error('Erreur suppression document:', err);
+    toast({ title: "Erreur", description: "Impossible de supprimer le document", variant: "destructive" });
+  }
+};
 
   if (isLoading) {
     return (
@@ -171,24 +220,36 @@ export const UserDocuments = () => {
                       </div>
                     </div>
                     
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleViewDossier(document.dossier_id)}
-                      >
-                        <Eye className="h-4 w-4 mr-1" />
-                        Voir le dossier
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDownload(document)}
-                      >
-                        <Download className="h-4 w-4 mr-1" />
-                        Télécharger
-                      </Button>
-                    </div>
+<div className="flex gap-2">
+  <Button
+    variant="outline"
+    size="sm"
+    onClick={() => handleViewDossier(document.dossier_id)}
+    title="Voir le dossier"
+  >
+    <Eye className="h-4 w-4 mr-1" />
+    Voir le dossier
+  </Button>
+  <Button
+    variant="outline"
+    size="sm"
+    onClick={() => handleViewDocument(document)}
+    title="Voir le document"
+  >
+    <Eye className="h-4 w-4 mr-1" />
+    Voir
+  </Button>
+  <Button
+    variant="outline"
+    size="sm"
+    onClick={() => handleDeleteDocument(document)}
+    className="text-destructive hover:text-destructive"
+    title="Supprimer le document"
+  >
+    <Trash2 className="h-4 w-4 mr-1" />
+    Supprimer
+  </Button>
+</div>
                   </div>
                 </CardContent>
               </Card>
