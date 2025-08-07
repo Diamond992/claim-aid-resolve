@@ -78,7 +78,7 @@ const AdminDocumentsList = ({
 
       if (error) {
         console.error('Error creating signed URL:', error);
-        toast.error('Erreur lors de l\'accès au document');
+        toast({ title: "Erreur", description: "Erreur lors de l'accès au document", variant: "destructive" });
         return;
       }
 
@@ -87,7 +87,7 @@ const AdminDocumentsList = ({
       }
     } catch (error) {
       console.error('Error viewing document:', error);
-      toast.error('Erreur lors de l\'ouverture du document');
+      toast({ title: "Erreur", description: "Erreur lors de l'ouverture du document", variant: "destructive" });
     }
   };
 
@@ -102,7 +102,7 @@ const AdminDocumentsList = ({
 
       if (error) {
         console.error('Error downloading document:', error);
-        toast.error('Erreur lors du téléchargement');
+        toast({ title: "Erreur", description: "Erreur lors du téléchargement", variant: "destructive" });
         return;
       }
 
@@ -116,11 +116,11 @@ const AdminDocumentsList = ({
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-        toast.success('Document téléchargé');
+        toast({ title: "Téléchargé", description: "Document téléchargé" });
       }
     } catch (error) {
       console.error('Error downloading document:', error);
-      toast.error('Erreur lors du téléchargement');
+      toast({ title: "Erreur", description: "Erreur lors du téléchargement", variant: "destructive" });
     }
   };
 
