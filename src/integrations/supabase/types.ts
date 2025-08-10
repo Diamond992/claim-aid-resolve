@@ -567,6 +567,36 @@ export type Database = {
           },
         ]
       }
+      webhook_endpoints: {
+        Row: {
+          active: boolean
+          created_at: string
+          created_by: string | null
+          description: string | null
+          event: string
+          id: string
+          url: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          event: string
+          id?: string
+          url: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          event?: string
+          id?: string
+          url?: string
+        }
+        Relationships: []
+      }
       webhook_logs: {
         Row: {
           attempt_number: number
@@ -672,6 +702,10 @@ export type Database = {
       }
       notify_make_webhook: {
         Args: { webhook_url: string; payload_json: Json; max_retries?: number }
+        Returns: boolean
+      }
+      notify_webhook_by_event: {
+        Args: { event_name: string; payload_json: Json; max_retries?: number }
         Returns: boolean
       }
       secure_change_user_role: {
