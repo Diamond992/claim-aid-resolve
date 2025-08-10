@@ -665,6 +665,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: Json
       }
+      dossier_json: {
+        Args: { p_dossier_id: string }
+        Returns: Json
+      }
       encrypt_sensitive_data: {
         Args: { data: string }
         Returns: string
@@ -707,6 +711,10 @@ export type Database = {
       notify_webhook_by_event: {
         Args: { event_name: string; payload_json: Json; max_retries?: number }
         Returns: boolean
+      }
+      profile_json: {
+        Args: { p_user_id: string }
+        Returns: Json
       }
       secure_change_user_role: {
         Args: {
