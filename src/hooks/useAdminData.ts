@@ -116,7 +116,11 @@ export const useAdminData = () => {
             id,
             nom_fichier,
             type_document,
-            created_at
+            created_at,
+            url_stockage,
+            mime_type,
+            taille_fichier,
+            uploaded_by
           ),
           courriers:courriers_projets (
             id,
@@ -145,7 +149,7 @@ export const useAdminData = () => {
       const { data, error } = await supabase
         .from('modeles_courriers')
         .select('*')
-        .order('nom', { ascending: true });
+        .order('nom_modele', { ascending: true });
 
       if (error) throw error;
       return data;

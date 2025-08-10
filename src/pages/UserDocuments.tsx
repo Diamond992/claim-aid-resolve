@@ -102,20 +102,34 @@ const handleViewDocument = async (document: Document) => {
   try {
     const filePath = getFilePathFromUrl(document.url_stockage);
     if (!filePath) {
-      toast({
-        title: "Erreur",
-        description: "Chemin du fichier introuvable",
-        variant: "destructive",
-      });
+      if (document.url_stockage) {
+        window.open(document.url_stockage, '_blank');
+        return;
+      }
+      toast({ title: "Erreur", description: "Chemin du fichier introuvable", variant: "destructive" });
       return;
     }
     const { data, error } = await supabase.storage
       .from('documents')
       .createSignedUrl(filePath, 3600);
-    if (error) throw error;
-    if (data?.signedUrl) window.open(data.signedUrl, '_blank');
+
+    if (error || !data?.signedUrl) {
+      console.warn('Signed URL failed, using public URL fallback:', (error as any)?.message);
+      if (document.url_stockage) {
+        window.open(document.url_stockage, '_blank');
+        return;
+      }
+      toast({ title: "Erreur", description: "Impossible d'ouvrir le document", variant: "destructive" });
+      return;
+    }
+
+    window.open(data.signedUrl, '_blank');
   } catch (err) {
     console.error('Erreur ouverture document:', err);
+    if (document.url_stockage) {
+      window.open(document.url_stockage, '_blank');
+      return;
+    }
     toast({ title: "Erreur", description: "Impossible d'ouvrir le document", variant: "destructive" });
   }
 };

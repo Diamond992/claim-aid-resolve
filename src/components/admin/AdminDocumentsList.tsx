@@ -67,59 +67,92 @@ const AdminDocumentsList = ({
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
+  const getFilePathFromUrl = (url?: string) => {
+    if (!url) return null;
+    const marker = '/documents/';
+    const idx = url.indexOf(marker);
+    return idx !== -1 ? url.slice(idx + marker.length) : url;
+  };
+  
   const handleSecureDocumentView = async (doc: any) => {
     try {
-      // Extract the file path from the full URL
-      const filePath = doc.url_stockage.split('/documents/')[1];
-      
+      const filePath = getFilePathFromUrl(doc?.url_stockage);
+      if (!filePath) {
+        if (doc?.url_stockage) {
+          // Fallback: open public URL directly (bucket is public)
+          window.open(doc.url_stockage, '_blank');
+          return;
+        }
+        toast({ title: "Erreur", description: "Chemin du fichier introuvable", variant: "destructive" });
+        return;
+      }
       const { data, error } = await supabase.storage
         .from('documents')
-        .createSignedUrl(filePath, 3600); // 1 hour expiry
+        .createSignedUrl(filePath, 3600);
 
-      if (error) {
-        console.error('Error creating signed URL:', error);
-        toast({ title: "Erreur", description: "Erreur lors de l'accès au document", variant: "destructive" });
+      if (error || !data?.signedUrl) {
+        console.warn('Signed URL failed, using public URL fallback:', error?.message);
+        if (doc?.url_stockage) {
+          window.open(doc.url_stockage, '_blank');
+          return;
+        }
+        toast({ title: "Erreur", description: "Impossible d'accéder au document", variant: "destructive" });
         return;
       }
 
-      if (data?.signedUrl) {
-        window.open(data.signedUrl, '_blank');
-      }
+      window.open(data.signedUrl, '_blank');
     } catch (error) {
       console.error('Error viewing document:', error);
+      if (doc?.url_stockage) {
+        window.open(doc.url_stockage, '_blank');
+        return;
+      }
       toast({ title: "Erreur", description: "Erreur lors de l'ouverture du document", variant: "destructive" });
     }
   };
 
   const handleSecureDocumentDownload = async (doc: any) => {
     try {
-      // Extract the file path from the full URL
-      const filePath = doc.url_stockage.split('/documents/')[1];
-      
+      const filePath = getFilePathFromUrl(doc?.url_stockage);
+      if (!filePath) {
+        if (doc?.url_stockage) {
+          // Fallback: open in new tab if direct URL available
+          window.open(doc.url_stockage, '_blank');
+          return;
+        }
+        toast({ title: "Erreur", description: "Chemin du fichier introuvable", variant: "destructive" });
+        return;
+      }
       const { data, error } = await supabase.storage
         .from('documents')
         .download(filePath);
 
-      if (error) {
-        console.error('Error downloading document:', error);
+      if (error || !data) {
+        console.warn('Download failed, using public URL fallback:', error?.message);
+        if (doc?.url_stockage) {
+          window.open(doc.url_stockage, '_blank');
+          return;
+        }
         toast({ title: "Erreur", description: "Erreur lors du téléchargement", variant: "destructive" });
         return;
       }
 
-      if (data) {
-        const blob = new Blob([data], { type: doc.mime_type });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = doc.nom_fichier;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        toast({ title: "Téléchargé", description: "Document téléchargé" });
-      }
+      const blob = new Blob([data], { type: doc?.mime_type || 'application/octet-stream' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = doc?.nom_fichier || 'document';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast({ title: "Téléchargé", description: "Document téléchargé" });
     } catch (error) {
       console.error('Error downloading document:', error);
+      if (doc?.url_stockage) {
+        window.open(doc.url_stockage, '_blank');
+        return;
+      }
       toast({ title: "Erreur", description: "Erreur lors du téléchargement", variant: "destructive" });
     }
   };
@@ -206,7 +239,7 @@ const AdminDocumentsList = ({
                     </div>
                     <div>
                       <span className="font-medium">Taille:</span>
-                      <div className="text-muted-foreground">{formatFileSize(doc.taille_fichier)}</div>
+                      <div className="text-muted-foreground">{doc.taille_fichier ? formatFileSize(doc.taille_fichier) : '—'}</div>
                     </div>
                     <div>
                       <span className="font-medium">Ajouté le:</span>
@@ -217,7 +250,7 @@ const AdminDocumentsList = ({
                   </div>
 
                   <div className="text-xs text-muted-foreground">
-                    Type MIME: {doc.mime_type}
+                    Type MIME: {doc.mime_type || '—'}
                   </div>
                 </div>
 
