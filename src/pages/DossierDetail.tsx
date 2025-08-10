@@ -15,6 +15,7 @@ const DossierDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { data, isLoading, error, refetch } = useDossierDetail(id!);
+  const { toast } = useToast();
 
   if (isLoading) {
     return (
@@ -65,7 +66,6 @@ const DossierDetail = () => {
     }
   };
 
-  const { toast } = useToast();
 
   const formatFileSize = (bytes?: number) => {
     if (bytes === undefined || bytes === null) return '—';
