@@ -3,11 +3,13 @@ import { useDossierDetail } from "@/hooks/useDossierDetail";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, FileText, Mail, Calendar, AlertTriangle, Upload, Edit, MessageCircle } from "lucide-react";
+import { ArrowLeft, FileText, Mail, Calendar, AlertTriangle, Upload, Edit, MessageCircle, Eye, Download } from "lucide-react";
 import { DocumentUpload } from "@/components/DocumentUpload";
 import { EditDossier } from "@/components/EditDossier";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 const DossierDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -60,6 +62,101 @@ const DossierDetail = () => {
       case 'sante': return 'Santé';
       case 'professionnelle': return 'Professionnelle';
       default: return type;
+    }
+  };
+
+  const { toast } = useToast();
+
+  const formatFileSize = (bytes?: number) => {
+    if (bytes === undefined || bytes === null) return '—';
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  const getFilePathFromUrl = (url?: string) => {
+    if (!url) return null;
+    const marker = '/documents/';
+    const idx = url.indexOf(marker);
+    return idx !== -1 ? url.slice(idx + marker.length) : url;
+  };
+
+  const handleViewDocument = async (doc: any) => {
+    try {
+      const filePath = getFilePathFromUrl(doc?.url_stockage);
+      if (!filePath) {
+        if (doc?.url_stockage) {
+          window.open(doc.url_stockage, '_blank');
+          return;
+        }
+        toast({ title: 'Erreur', description: "Chemin du fichier introuvable", variant: 'destructive' });
+        return;
+      }
+      const { data, error } = await supabase.storage
+        .from('documents')
+        .createSignedUrl(filePath, 3600);
+      if (error || !data?.signedUrl) {
+        console.warn('Signed URL failed, using public URL fallback:', (error as any)?.message);
+        if (doc?.url_stockage) {
+          window.open(doc.url_stockage, '_blank');
+          return;
+        }
+        toast({ title: 'Erreur', description: "Impossible d'accéder au document", variant: 'destructive' });
+        return;
+      }
+      window.open(data.signedUrl, '_blank');
+    } catch (err) {
+      console.error('Erreur ouverture document:', err);
+      if (doc?.url_stockage) {
+        window.open(doc.url_stockage, '_blank');
+        return;
+      }
+      toast({ title: 'Erreur', description: "Impossible d'ouvrir le document", variant: 'destructive' });
+    }
+  };
+
+  const handleDownloadDocument = async (doc: any) => {
+    try {
+      const filePath = getFilePathFromUrl(doc?.url_stockage);
+      if (!filePath) {
+        if (doc?.url_stockage) {
+          window.open(doc.url_stockage, '_blank');
+          return;
+        }
+        toast({ title: 'Erreur', description: "Chemin du fichier introuvable", variant: 'destructive' });
+        return;
+      }
+      const { data, error } = await supabase.storage
+        .from('documents')
+        .download(filePath);
+      if (error || !data) {
+        console.warn('Download failed, using public URL fallback:', (error as any)?.message);
+        if (doc?.url_stockage) {
+          window.open(doc.url_stockage, '_blank');
+          return;
+        }
+        toast({ title: 'Erreur', description: "Erreur lors du téléchargement", variant: 'destructive' });
+        return;
+      }
+      const blob = new Blob([data], { type: doc?.mime_type || 'application/octet-stream' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = doc?.nom_fichier || 'document';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast({ title: 'Téléchargé', description: 'Document téléchargé' });
+    } catch (err) {
+      console.error('Erreur téléchargement document:', err);
+      if (doc?.url_stockage) {
+        window.open(doc.url_stockage, '_blank');
+        return;
+      }
+      toast({ title: 'Erreur', description: "Erreur lors du téléchargement", variant: 'destructive' });
     }
   };
 
@@ -162,12 +259,17 @@ const DossierDetail = () => {
                         <div>
                           <p className="font-medium">{doc.nom_fichier}</p>
                           <p className="text-sm text-muted-foreground">
-                            {doc.type_document} • {(doc.taille_fichier / 1024).toFixed(1)} KB
+                            {doc.type_document} • {formatFileSize(doc.taille_fichier)}
                           </p>
                         </div>
-                        <Button size="sm" variant="outline">
-                          Télécharger
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button variant="outline" size="sm" onClick={() => handleViewDocument(doc)} title="Voir le document">
+                            <Eye className="h-4 w-4 mr-1" /> Voir
+                          </Button>
+                          <Button variant="outline" size="sm" onClick={() => handleDownloadDocument(doc)} title="Télécharger le document">
+                            <Download className="h-4 w-4 mr-1" /> Télécharger
+                          </Button>
+                        </div>
                       </div>
                     ))}
                   </div>
