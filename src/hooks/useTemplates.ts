@@ -63,10 +63,81 @@ export const useTemplates = () => {
     },
   });
 
+  // Create template mutation
+  const createTemplateMutation = useMutation({
+    mutationFn: async (templateData: {
+      nom_modele: string;
+      type_sinistre: 'auto' | 'habitation' | 'sante';
+      type_courrier: 'reclamation_interne' | 'mediation' | 'mise_en_demeure';
+      template_content: string;
+      variables_requises: string[];
+      actif: boolean;
+    }) => {
+      const { error } = await supabase
+        .from('modeles_courriers')
+        .insert({
+          ...templateData,
+          variables_requises: templateData.variables_requises as any,
+          created_by: (await supabase.auth.getUser()).data.user?.id
+        });
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-templates'] });
+      toast.success("Modèle créé avec succès");
+    },
+    onError: (error) => {
+      console.error('Error creating template:', error);
+      toast.error("Erreur lors de la création du modèle");
+    },
+  });
+
+  // Update template mutation
+  const updateTemplateMutation = useMutation({
+    mutationFn: async ({ 
+      id, 
+      templateData 
+    }: { 
+      id: string; 
+      templateData: {
+        nom_modele: string;
+        type_sinistre: 'auto' | 'habitation' | 'sante';
+        type_courrier: 'reclamation_interne' | 'mediation' | 'mise_en_demeure';
+        template_content: string;
+        variables_requises: string[];
+        actif: boolean;
+      }
+    }) => {
+      const { error } = await supabase
+        .from('modeles_courriers')
+        .update({
+          ...templateData,
+          variables_requises: templateData.variables_requises as any,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-templates'] });
+      toast.success("Modèle mis à jour avec succès");
+    },
+    onError: (error) => {
+      console.error('Error updating template:', error);
+      toast.error("Erreur lors de la mise à jour du modèle");
+    },
+  });
+
   return {
     templates,
     isLoading,
     deleteTemplate: deleteTemplateMutation.mutate,
     updateTemplateStatus: updateTemplateStatusMutation.mutate,
+    createTemplate: createTemplateMutation.mutate,
+    updateTemplate: updateTemplateMutation.mutate,
+    isCreating: createTemplateMutation.isPending,
+    isUpdating: updateTemplateMutation.isPending,
   };
 };

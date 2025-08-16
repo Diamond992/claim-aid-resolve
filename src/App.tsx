@@ -14,6 +14,7 @@ import AdminRegister from "./pages/AdminRegister";
 import PaymentRedirect from "./pages/PaymentRedirect";
 import Dashboard from "./pages/Dashboard";
 import AdminDashboard from "./pages/AdminDashboard";
+import CourrierDetail from "./pages/CourrierDetail";
 import PasswordReset from "./pages/PasswordReset";
 import ResetPassword from "./pages/ResetPassword";
 import DossierDetail from "./pages/DossierDetail";
@@ -75,6 +76,11 @@ const App = () => (
             <Route path="/admin" element={
               <ProtectedRoute>
                 <AdminDashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/courrier/:id" element={
+              <ProtectedRoute>
+                <CourrierDetail />
               </ProtectedRoute>
             } />
             <Route path="/payment-redirect" element={

@@ -11,6 +11,8 @@ import ConfigurationList from "./ConfigurationList";
 import AdminDossiersList from "./AdminDossiersList";
 import AdminDocumentsList from "./AdminDocumentsList";
 import AdminEditDossier from "./AdminEditDossier";
+import CreateEditTemplateDialog from "./CreateEditTemplateDialog";
+import { useTemplates } from "@/hooks/useTemplates";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -55,7 +57,18 @@ export const AdminTabsContent = ({
   onDeleteDocument
 }: AdminTabsContentProps) => {
   const [editingDossier, setEditingDossier] = useState<any>(null);
+  const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<any>(null);
   const navigate = useNavigate();
+  
+  const { 
+    createTemplate, 
+    updateTemplate, 
+    deleteTemplate, 
+    updateTemplateStatus,
+    isCreating,
+    isUpdating 
+  } = useTemplates();
 
   const handleViewDossier = (dossierId: string) => {
     // Navigate to correct dossier detail route
@@ -75,6 +88,40 @@ export const AdminTabsContent = ({
   const handleViewDocument = (documentUrl: string) => {
     if (documentUrl) {
       window.open(documentUrl, '_blank');
+    }
+  };
+
+  // Template handlers
+  const handleCreateTemplate = () => {
+    setEditingTemplate(null);
+    setIsTemplateDialogOpen(true);
+  };
+
+  const handleEditTemplate = (template: any) => {
+    setEditingTemplate(template);
+    setIsTemplateDialogOpen(true);
+  };
+
+  const handleSaveTemplate = (templateData: any) => {
+    if (editingTemplate) {
+      updateTemplate({ id: editingTemplate.id, templateData }, {
+        onSuccess: () => {
+          setIsTemplateDialogOpen(false);
+          setEditingTemplate(null);
+        }
+      });
+    } else {
+      createTemplate(templateData, {
+        onSuccess: () => {
+          setIsTemplateDialogOpen(false);
+        }
+      });
+    }
+  };
+
+  const handleDeleteTemplate = (id: string) => {
+    if (confirm('Êtes-vous sûr de vouloir supprimer ce modèle ?')) {
+      deleteTemplate(id);
     }
   };
   return (
@@ -151,7 +198,12 @@ export const AdminTabsContent = ({
       </TabsContent>
       
       <TabsContent value="templates" className="mt-6">
-        <TemplatesList templates={templates} />
+        <TemplatesList 
+          templates={templates}
+          onCreate={handleCreateTemplate}
+          onEdit={handleEditTemplate}
+          onDelete={handleDeleteTemplate}
+        />
       </TabsContent>
       
       <TabsContent value="config" className="mt-6">
@@ -167,6 +219,18 @@ export const AdminTabsContent = ({
           onSave={handleSaveDossier}
         />
       )}
+
+      {/* Create/Edit Template Dialog */}
+      <CreateEditTemplateDialog
+        isOpen={isTemplateDialogOpen}
+        onClose={() => {
+          setIsTemplateDialogOpen(false);
+          setEditingTemplate(null);
+        }}
+        template={editingTemplate}
+        onSave={handleSaveTemplate}
+        isLoading={isCreating || isUpdating}
+      />
     </Tabs>
   );
 };
