@@ -3,19 +3,24 @@ import { useDossierDetail } from "@/hooks/useDossierDetail";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, FileText, Mail, Calendar, AlertTriangle, Upload, Edit, MessageCircle, Eye, Download } from "lucide-react";
+import { ArrowLeft, FileText, Mail, Calendar, AlertTriangle, Upload, Edit, MessageCircle, Eye, Download, Plus } from "lucide-react";
 import { DocumentUpload } from "@/components/DocumentUpload";
 import { EditDossier } from "@/components/EditDossier";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { GenerateCourrierDialog } from "@/components/admin/GenerateCourrierDialog";
+import { useCourrierGenerator } from "@/hooks/useCourrierGenerator";
+import { useState } from "react";
 
 const DossierDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { data, isLoading, error, refetch } = useDossierDetail(id!);
   const { toast } = useToast();
+  const [showGenerateDialog, setShowGenerateDialog] = useState(false);
+  const { generateCourrier } = useCourrierGenerator();
 
   if (isLoading) {
     return (
@@ -45,6 +50,20 @@ const DossierDetail = () => {
   }
 
   const { dossier, documents, courriers, echeances } = data;
+
+  const handleGenerateCourrier = async (templateId: string, typeCourrier: string, contenuGenere: string) => {
+    if (!id) return;
+    
+    generateCourrier({
+      dossierId: id,
+      templateId,
+      typeCourrier: typeCourrier as 'reclamation_interne' | 'mediation' | 'mise_en_demeure',
+      contenuGenere
+    });
+    
+    setShowGenerateDialog(false);
+    refetch();
+  };
 
   const getStatutBadgeVariant = (statut: string) => {
     switch (statut) {
@@ -189,6 +208,13 @@ const DossierDetail = () => {
           >
             <MessageCircle className="h-4 w-4" />
             Messages
+          </Button>
+          <Button 
+            onClick={() => setShowGenerateDialog(true)}
+            className="flex items-center gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            Générer courrier
           </Button>
         </div>
 
@@ -351,6 +377,28 @@ const DossierDetail = () => {
             </Card>
           </div>
         </div>
+
+        {/* Generate Courrier Dialog */}
+        {dossier && (
+          <GenerateCourrierDialog
+            open={showGenerateDialog}
+            onClose={() => setShowGenerateDialog(false)}
+            dossier={{
+              id: dossier.id,
+              client_id: dossier.client_id,
+              type_sinistre: dossier.type_sinistre as 'auto' | 'habitation' | 'sante',
+              date_sinistre: dossier.date_sinistre,
+              montant_refuse: dossier.montant_refuse,
+              refus_date: dossier.refus_date,
+              police_number: dossier.police_number,
+              compagnie_assurance: dossier.compagnie_assurance,
+              motif_refus: dossier.motif_refus,
+              adresse_assureur: dossier.adresse_assureur,
+              profiles: dossier.profiles
+            }}
+            onGenerate={handleGenerateCourrier}
+          />
+        )}
       </div>
     </div>
   );
