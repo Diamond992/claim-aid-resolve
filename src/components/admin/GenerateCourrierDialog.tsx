@@ -3,12 +3,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CourrierGenerator, type DossierData, type TemplateVariable } from "@/services/courrierGenerator";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Eye, FileText, Settings } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -17,7 +17,16 @@ interface Template {
   id: string;
   nom_modele: string;
   template_content: string;
-  variables_requises: any; // Json type from Supabase
+  variables_requises: any;
+  types_sinistres?: { code: string; libelle: string };
+  types_courriers?: { code: string; libelle: string };
+}
+
+interface TypeCourrier {
+  id: string;
+  code: string;
+  libelle: string;
+  actif: boolean;
 }
 
 interface GenerateCourrierDialogProps {
@@ -34,7 +43,8 @@ export const GenerateCourrierDialog = ({
   onGenerate
 }: GenerateCourrierDialogProps) => {
   const [step, setStep] = useState<'select' | 'configure' | 'preview'>('select');
-  const [typeCourrier, setTypeCourrier] = useState<'reclamation_interne' | 'mediation' | 'mise_en_demeure'>('reclamation_interne');
+  const [availableCourrierTypes, setAvailableCourrierTypes] = useState<TypeCourrier[]>([]);
+  const [typeCourrier, setTypeCourrier] = useState<string>('');
   const [templates, setTemplates] = useState<Template[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
   const [automaticVariables, setAutomaticVariables] = useState<TemplateVariable[]>([]);
@@ -42,11 +52,37 @@ export const GenerateCourrierDialog = ({
   const [generatedContent, setGeneratedContent] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
+  // Load available courrier types when dialog opens
   useEffect(() => {
-    if (open && step === 'select') {
+    if (open && dossier.type_sinistre) {
+      loadAvailableCourrierTypes();
+    }
+  }, [open, dossier.type_sinistre]);
+
+  // Load templates when type courrier changes
+  useEffect(() => {
+    if (open && step === 'select' && typeCourrier && dossier.type_sinistre) {
       loadTemplates();
     }
   }, [open, step, typeCourrier, dossier.type_sinistre]);
+
+  const loadAvailableCourrierTypes = async () => {
+    try {
+      setIsLoading(true);
+      const types = await CourrierGenerator.getAvailableCourrierTypes(dossier.type_sinistre);
+      setAvailableCourrierTypes(types);
+      
+      // Auto-select first available type
+      if (types.length > 0 && !typeCourrier) {
+        setTypeCourrier(types[0].code);
+      }
+    } catch (error) {
+      console.error('Error loading courrier types:', error);
+      toast.error("Erreur lors du chargement des types de courriers");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const loadTemplates = async () => {
     try {
@@ -64,33 +100,50 @@ export const GenerateCourrierDialog = ({
     }
   };
 
-  const handleTemplateSelect = (template: Template) => {
-    setSelectedTemplate(template);
-    const { automaticVariables: autoVars, manualVariables: manualVars } = 
-      CourrierGenerator.analyzeTemplateVariables(template.template_content, dossier);
-    
-    setAutomaticVariables(autoVars);
-    
-    // Initialize manual variables
-    const initialManualVars: Record<string, string> = {};
-    manualVars.forEach(variable => {
-      initialManualVars[variable.key] = '';
-    });
-    setManualVariables(initialManualVars);
-    
-    setStep('configure');
+  const handleTemplateSelect = async (template: Template) => {
+    try {
+      setIsLoading(true);
+      setSelectedTemplate(template);
+      
+      const { automaticVariables: autoVars, manualVariables: manualVars } = 
+        await CourrierGenerator.analyzeTemplateVariables(template.template_content, dossier);
+      
+      setAutomaticVariables(autoVars);
+      
+      // Initialize manual variables
+      const initialManualVars: Record<string, string> = {};
+      manualVars.forEach(variable => {
+        initialManualVars[variable.key] = '';
+      });
+      setManualVariables(initialManualVars);
+      
+      setStep('configure');
+    } catch (error) {
+      console.error('Error analyzing template:', error);
+      toast.error("Erreur lors de l'analyse du modèle");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handlePreview = () => {
+  const handlePreview = async () => {
     if (!selectedTemplate) return;
 
-    const content = CourrierGenerator.generateContent(
-      selectedTemplate.template_content,
-      dossier,
-      manualVariables
-    );
-    setGeneratedContent(content);
-    setStep('preview');
+    try {
+      setIsLoading(true);
+      const content = await CourrierGenerator.generateContent(
+        selectedTemplate.template_content,
+        dossier,
+        manualVariables
+      );
+      setGeneratedContent(content);
+      setStep('preview');
+    } catch (error) {
+      console.error('Error generating preview:', error);
+      toast.error("Erreur lors de la génération de l'aperçu");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleGenerate = async () => {
@@ -115,16 +168,13 @@ export const GenerateCourrierDialog = ({
     setAutomaticVariables([]);
     setManualVariables({});
     setGeneratedContent('');
+    setTypeCourrier('');
     onClose();
   };
 
-  const getTypeCourrierLabel = (type: string) => {
-    switch (type) {
-      case 'reclamation_interne': return 'Réclamation interne';
-      case 'mediation': return 'Médiation';
-      case 'mise_en_demeure': return 'Mise en demeure';
-      default: return type;
-    }
+  const getTypeCourrierLabel = (code: string) => {
+    const type = availableCourrierTypes.find(t => t.code === code);
+    return type?.libelle || code;
   };
 
   return (
@@ -154,16 +204,28 @@ export const GenerateCourrierDialog = ({
             <div className="space-y-4">
               <div>
                 <Label htmlFor="type-courrier">Type de courrier</Label>
-                <Select value={typeCourrier} onValueChange={(value: any) => setTypeCourrier(value)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="reclamation_interne">Réclamation interne</SelectItem>
-                    <SelectItem value="mediation">Médiation</SelectItem>
-                    <SelectItem value="mise_en_demeure">Mise en demeure</SelectItem>
-                  </SelectContent>
-                </Select>
+                {availableCourrierTypes.length === 0 ? (
+                  <Card>
+                    <CardContent className="pt-6">
+                      <p className="text-center text-muted-foreground">
+                        Aucun type de courrier disponible pour ce type de sinistre.
+                      </p>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <Select value={typeCourrier} onValueChange={setTypeCourrier}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sélectionnez un type de courrier" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableCourrierTypes.map((type) => (
+                        <SelectItem key={type.id} value={type.code}>
+                          {type.libelle}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
 
               <div>
@@ -172,6 +234,14 @@ export const GenerateCourrierDialog = ({
                   <div className="flex items-center justify-center p-8">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                   </div>
+                ) : !typeCourrier ? (
+                  <Card>
+                    <CardContent className="pt-6">
+                      <p className="text-center text-muted-foreground">
+                        Sélectionnez d'abord un type de courrier.
+                      </p>
+                    </CardContent>
+                  </Card>
                 ) : templates.length === 0 ? (
                   <Card>
                     <CardContent className="pt-6">
@@ -272,9 +342,9 @@ export const GenerateCourrierDialog = ({
                       <Button variant="outline" onClick={() => setStep('select')}>
                         Retour
                       </Button>
-                      <Button onClick={handlePreview}>
+                      <Button onClick={handlePreview} disabled={isLoading}>
                         <Eye className="h-4 w-4 mr-2" />
-                        Aperçu
+                        {isLoading ? "Génération..." : "Aperçu"}
                       </Button>
                     </div>
                   </CardContent>

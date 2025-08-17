@@ -12,6 +12,9 @@ import AdminDossiersList from "./AdminDossiersList";
 import AdminDocumentsList from "./AdminDocumentsList";
 import AdminEditDossier from "./AdminEditDossier";
 import CreateEditTemplateDialog from "./CreateEditTemplateDialog";
+import { TypesSinistresManagement } from "./TypesSinistresManagement";
+import { TypesCourrierManagement } from "./TypesCourrierManagement";
+import { CompatibilityMatrix } from "./CompatibilityMatrix";
 import { useTemplates } from "@/hooks/useTemplates";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -126,16 +129,18 @@ export const AdminTabsContent = ({
   };
   return (
     <Tabs defaultValue="courriers" className="w-full">
-      <TabsList className="grid w-full grid-cols-10">
+      <TabsList className="grid w-full grid-cols-12 md:grid-cols-6 lg:grid-cols-12">
         <TabsTrigger value="courriers">Courriers</TabsTrigger>
         <TabsTrigger value="echeances">Échéances</TabsTrigger>
         <TabsTrigger value="payments">Paiements</TabsTrigger>
         <TabsTrigger value="dossiers">Dossiers</TabsTrigger>
         <TabsTrigger value="documents">Documents</TabsTrigger>
-        <TabsTrigger value="webhooks">Webhooks</TabsTrigger>
-        <TabsTrigger value="activity">Activité</TabsTrigger>
-        <TabsTrigger value="users">Utilisateurs</TabsTrigger>
         <TabsTrigger value="templates">Modèles</TabsTrigger>
+        <TabsTrigger value="sinistres">Types Sinistres</TabsTrigger>
+        <TabsTrigger value="courriers-types">Types Courriers</TabsTrigger>
+        <TabsTrigger value="compatibility">Compatibilité</TabsTrigger>
+        <TabsTrigger value="users">Utilisateurs</TabsTrigger>
+        <TabsTrigger value="activity">Activité</TabsTrigger>
         <TabsTrigger value="config">Configuration</TabsTrigger>
       </TabsList>
       
@@ -204,6 +209,18 @@ export const AdminTabsContent = ({
           onEdit={handleEditTemplate}
           onDelete={handleDeleteTemplate}
         />
+      </TabsContent>
+
+      <TabsContent value="sinistres" className="mt-6">
+        <TypesSinistresManagement />
+      </TabsContent>
+
+      <TabsContent value="courriers-types" className="mt-6">
+        <TypesCourrierManagement />
+      </TabsContent>
+
+      <TabsContent value="compatibility" className="mt-6">
+        <CompatibilityMatrix />
       </TabsContent>
       
       <TabsContent value="config" className="mt-6">

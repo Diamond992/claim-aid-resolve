@@ -7,7 +7,7 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "12.2.3 (519615d)"
@@ -538,6 +538,123 @@ export type Database = {
         }
         Relationships: []
       }
+      sinistre_courrier_mapping: {
+        Row: {
+          actif: boolean
+          created_at: string
+          created_by: string | null
+          id: string
+          type_courrier_id: string
+          type_sinistre_id: string
+          updated_at: string
+        }
+        Insert: {
+          actif?: boolean
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          type_courrier_id: string
+          type_sinistre_id: string
+          updated_at?: string
+        }
+        Update: {
+          actif?: boolean
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          type_courrier_id?: string
+          type_sinistre_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sinistre_courrier_mapping_type_courrier_id_fkey"
+            columns: ["type_courrier_id"]
+            isOneToOne: false
+            referencedRelation: "types_courriers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sinistre_courrier_mapping_type_sinistre_id_fkey"
+            columns: ["type_sinistre_id"]
+            isOneToOne: false
+            referencedRelation: "types_sinistres"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      types_courriers: {
+        Row: {
+          actif: boolean
+          code: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          libelle: string
+          ordre_affichage: number | null
+          updated_at: string
+        }
+        Insert: {
+          actif?: boolean
+          code: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          libelle: string
+          ordre_affichage?: number | null
+          updated_at?: string
+        }
+        Update: {
+          actif?: boolean
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          libelle?: string
+          ordre_affichage?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      types_sinistres: {
+        Row: {
+          actif: boolean
+          code: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          libelle: string
+          ordre_affichage: number | null
+          updated_at: string
+        }
+        Insert: {
+          actif?: boolean
+          code: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          libelle: string
+          ordre_affichage?: number | null
+          updated_at?: string
+        }
+        Update: {
+          actif?: boolean
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          libelle?: string
+          ordre_affichage?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string | null
@@ -645,15 +762,15 @@ export type Database = {
       }
       create_dossier_secure: {
         Args: {
+          p_adresse_assureur?: Json
           p_client_id: string
-          p_type_sinistre: Database["public"]["Enums"]["type_sinistre"]
+          p_compagnie_assurance: string
           p_date_sinistre: string
           p_montant_refuse: number
-          p_refus_date: string
-          p_police_number: string
-          p_compagnie_assurance: string
           p_motif_refus?: string
-          p_adresse_assureur?: Json
+          p_police_number: string
+          p_refus_date: string
+          p_type_sinistre: Database["public"]["Enums"]["type_sinistre"]
         }
         Returns: string
       }
@@ -683,8 +800,8 @@ export type Database = {
       }
       has_role: {
         Args: {
-          _user_id: string
           _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
         }
         Returns: boolean
       }
@@ -698,18 +815,18 @@ export type Database = {
       }
       log_admin_action: {
         Args: {
+          action_details?: Json
           action_type: string
           target_user?: string
-          action_details?: Json
         }
         Returns: undefined
       }
       notify_make_webhook: {
-        Args: { webhook_url: string; payload_json: Json; max_retries?: number }
+        Args: { max_retries?: number; payload_json: Json; webhook_url: string }
         Returns: boolean
       }
       notify_webhook_by_event: {
-        Args: { event_name: string; payload_json: Json; max_retries?: number }
+        Args: { event_name: string; max_retries?: number; payload_json: Json }
         Returns: boolean
       }
       profile_json: {
@@ -718,8 +835,8 @@ export type Database = {
       }
       secure_change_user_role: {
         Args: {
-          target_user_id: string
           new_role: Database["public"]["Enums"]["app_role"]
+          target_user_id: string
         }
         Returns: boolean
       }
