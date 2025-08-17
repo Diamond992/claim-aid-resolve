@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CourrierGenerator, type DossierData, type TemplateVariable } from "@/services/courrierGenerator";
 import { toast } from "sonner";
 import { Eye, FileText, Settings } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface Template {
   id: string;
@@ -128,7 +129,7 @@ export const GenerateCourrierDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
@@ -288,8 +289,12 @@ export const GenerateCourrierDialog = ({
                 <CardTitle>Aperçu du courrier généré</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="bg-white border rounded-lg p-6 whitespace-pre-wrap font-mono text-sm">
-                  {generatedContent}
+                <div className="border rounded-lg bg-muted/50">
+                  <ScrollArea className="min-h-[400px] max-h-[60vh] w-full p-4">
+                    <pre className="whitespace-pre-wrap text-sm font-mono leading-relaxed text-foreground">
+                      {generatedContent}
+                    </pre>
+                  </ScrollArea>
                 </div>
                 
                 <div className="flex gap-2 mt-6">

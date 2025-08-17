@@ -106,40 +106,44 @@ const TemplatesList = ({ templates, onEdit, onDelete, onCreate }: TemplatesListP
                         <Eye className="h-4 w-4" />
                       </Button>
                     </DialogTrigger>
-                    <DialogContent className="max-w-4xl max-h-[80vh]">
+                    <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden">
                       <DialogHeader>
                         <DialogTitle>{template.nom_modele}</DialogTitle>
                       </DialogHeader>
-                      <div className="space-y-4">
-                        <div className="flex gap-2">
-                          <Badge className={getTypeColor(template.type_sinistre)}>
-                            {template.type_sinistre}
-                          </Badge>
-                          <Badge className={getCourrierTypeColor(template.type_courrier)}>
-                            {formatCourrierType(template.type_courrier)}
-                          </Badge>
-                        </div>
-                        
-                        <div>
-                          <h4 className="font-semibold mb-2">Variables requises :</h4>
-                          <div className="flex flex-wrap gap-1">
-                            {getVariablesArray(template.variables_requises).map((variable, index) => (
-                              <Badge key={index} variant="outline" className="text-xs">
-                                {`{{${variable}}}`}
-                              </Badge>
-                            ))}
+                      <ScrollArea className="max-h-[75vh] pr-4">
+                        <div className="space-y-4">
+                          <div className="flex gap-2">
+                            <Badge className={getTypeColor(template.type_sinistre)}>
+                              {template.type_sinistre}
+                            </Badge>
+                            <Badge className={getCourrierTypeColor(template.type_courrier)}>
+                              {formatCourrierType(template.type_courrier)}
+                            </Badge>
+                          </div>
+                          
+                          <div>
+                            <h4 className="font-semibold mb-2">Variables requises :</h4>
+                            <div className="flex flex-wrap gap-1">
+                              {getVariablesArray(template.variables_requises).map((variable, index) => (
+                                <Badge key={index} variant="outline" className="text-xs">
+                                  {`{{${variable}}}`}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div>
+                            <h4 className="font-semibold mb-2">Contenu du template :</h4>
+                            <div className="border rounded-lg bg-muted/50">
+                              <ScrollArea className="min-h-[500px] max-h-[60vh] w-full p-4">
+                                <pre className="whitespace-pre-wrap text-sm font-mono leading-relaxed text-foreground">
+                                  {template.template_content}
+                                </pre>
+                              </ScrollArea>
+                            </div>
                           </div>
                         </div>
-
-                        <div>
-                          <h4 className="font-semibold mb-2">Contenu du template :</h4>
-                          <ScrollArea className="h-[400px] w-full border rounded-md p-4">
-                            <pre className="whitespace-pre-wrap text-sm">
-                              {template.template_content}
-                            </pre>
-                          </ScrollArea>
-                        </div>
-                      </div>
+                      </ScrollArea>
                     </DialogContent>
                   </Dialog>
 
