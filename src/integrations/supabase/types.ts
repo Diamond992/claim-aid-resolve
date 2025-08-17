@@ -130,7 +130,7 @@ export type Database = {
           numero_suivi: string | null
           reference_laposte: string | null
           statut: Database["public"]["Enums"]["statut_courrier"]
-          type_courrier: Database["public"]["Enums"]["type_courrier"]
+          type_courrier: string
           updated_at: string
         }
         Insert: {
@@ -147,7 +147,7 @@ export type Database = {
           numero_suivi?: string | null
           reference_laposte?: string | null
           statut?: Database["public"]["Enums"]["statut_courrier"]
-          type_courrier: Database["public"]["Enums"]["type_courrier"]
+          type_courrier: string
           updated_at?: string
         }
         Update: {
@@ -164,7 +164,7 @@ export type Database = {
           numero_suivi?: string | null
           reference_laposte?: string | null
           statut?: Database["public"]["Enums"]["statut_courrier"]
-          type_courrier?: Database["public"]["Enums"]["type_courrier"]
+          type_courrier?: string
           updated_at?: string
         }
         Relationships: [
@@ -412,8 +412,8 @@ export type Database = {
           id: string
           nom_modele: string
           template_content: string
-          type_courrier: Database["public"]["Enums"]["type_courrier"]
-          type_sinistre: Database["public"]["Enums"]["type_sinistre"]
+          type_courrier_id: string
+          type_sinistre_id: string
           updated_at: string
           variables_requises: Json
         }
@@ -424,8 +424,8 @@ export type Database = {
           id?: string
           nom_modele: string
           template_content: string
-          type_courrier: Database["public"]["Enums"]["type_courrier"]
-          type_sinistre: Database["public"]["Enums"]["type_sinistre"]
+          type_courrier_id: string
+          type_sinistre_id: string
           updated_at?: string
           variables_requises?: Json
         }
@@ -436,12 +436,26 @@ export type Database = {
           id?: string
           nom_modele?: string
           template_content?: string
-          type_courrier?: Database["public"]["Enums"]["type_courrier"]
-          type_sinistre?: Database["public"]["Enums"]["type_sinistre"]
+          type_courrier_id?: string
+          type_sinistre_id?: string
           updated_at?: string
           variables_requises?: Json
         }
         Relationships: [
+          {
+            foreignKeyName: "fk_modeles_type_courrier"
+            columns: ["type_courrier_id"]
+            isOneToOne: false
+            referencedRelation: "types_courriers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_modeles_type_sinistre"
+            columns: ["type_sinistre_id"]
+            isOneToOne: false
+            referencedRelation: "types_sinistres"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "modeles_courriers_created_by_fkey"
             columns: ["created_by"]

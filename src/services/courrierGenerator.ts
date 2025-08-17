@@ -109,18 +109,34 @@ export class CourrierGenerator {
   // Récupère les types de courriers disponibles pour un type de sinistre
   static async getAvailableCourrierTypes(typeSinistreCode: string): Promise<TypeCourrier[]> {
     try {
+      // Get the sinistre type ID first
+      const { data: sinistreData } = await supabase
+        .from('types_sinistres')
+        .select('id')
+        .eq('code', typeSinistreCode)
+        .eq('actif', true)
+        .single();
+
+      if (!sinistreData) {
+        console.warn(`Type sinistre not found: ${typeSinistreCode}`);
+        return [];
+      }
+
+      // Get courrier types through the mapping table
       const { data, error } = await supabase
         .from('sinistre_courrier_mapping')
         .select(`
-          types_courriers!inner(*)
+          types_courriers!inner(
+            id, code, libelle, actif
+          )
         `)
+        .eq('type_sinistre_id', sinistreData.id)
         .eq('actif', true)
-        .eq('types_sinistres.code', typeSinistreCode)
         .eq('types_courriers.actif', true);
 
       if (error) throw error;
 
-      return data?.map(item => item.types_courriers) || [];
+      return data?.map(item => item.types_courriers).filter(Boolean) || [];
     } catch (error) {
       console.error('Error fetching available courrier types:', error);
       // Fallback to all courrier types
@@ -138,42 +154,13 @@ export class CourrierGenerator {
     typeCourrierCode?: string
   ) {
     try {
-      // First get the type sinistre and courrier IDs
-      const { data: sinistreData } = await supabase
-        .from('types_sinistres')
-        .select('id')
-        .eq('code', typeSinistreCode)
-        .eq('actif', true)
-        .single();
-
-      if (!sinistreData) {
-        console.warn(`Type sinistre not found: ${typeSinistreCode}`);
-        return [];
-      }
-
-      let courrierFilter = '';
-      if (typeCourrierCode) {
-        const { data: courrierData } = await supabase
-          .from('types_courriers')
-          .select('id')
-          .eq('code', typeCourrierCode)
-          .eq('actif', true)
-          .single();
-
-        if (!courrierData) {
-          console.warn(`Type courrier not found: ${typeCourrierCode}`);
-          return [];
-        }
-        courrierFilter = `.eq('type_courrier_id', '${courrierData.id}')`;
-      }
-
-      // Get templates through the mapping table
+      // Get templates through the foreign key relationships
       const { data, error } = await supabase
         .from('modeles_courriers')
         .select(`
           *,
-          types_sinistres!inner(code, libelle),
-          types_courriers!inner(code, libelle)
+          types_sinistres!fk_modeles_type_sinistre(code, libelle),
+          types_courriers!fk_modeles_type_courrier(code, libelle)
         `)
         .eq('actif', true)
         .eq('types_sinistres.code', typeSinistreCode);

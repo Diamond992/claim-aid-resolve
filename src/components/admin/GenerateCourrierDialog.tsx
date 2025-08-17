@@ -18,6 +18,12 @@ interface Template {
   nom_modele: string;
   template_content: string;
   variables_requises: any;
+  actif: boolean;
+  created_at: string;
+  updated_at: string;
+  created_by?: string;
+  type_sinistre_id: string;
+  type_courrier_id: string;
   types_sinistres?: { code: string; libelle: string };
   types_courriers?: { code: string; libelle: string };
 }

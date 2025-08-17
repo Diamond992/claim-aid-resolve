@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -6,13 +5,17 @@ import { toast } from "sonner";
 export const useTemplates = () => {
   const queryClient = useQueryClient();
 
-  // Fetch templates
+  // Fetch templates with related types
   const { data: templates = [], isLoading } = useQuery({
     queryKey: ['admin-templates'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('modeles_courriers')
-        .select('*')
+        .select(`
+          *,
+          types_sinistres!fk_modeles_type_sinistre(code, libelle),
+          types_courriers!fk_modeles_type_courrier(code, libelle)
+        `)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -73,11 +76,32 @@ export const useTemplates = () => {
       variables_requises: string[];
       actif: boolean;
     }) => {
+      // Get the IDs for the type codes
+      const { data: sinistreData } = await supabase
+        .from('types_sinistres')
+        .select('id')
+        .eq('code', templateData.type_sinistre)
+        .single();
+        
+      const { data: courrierData } = await supabase
+        .from('types_courriers')
+        .select('id')
+        .eq('code', templateData.type_courrier)
+        .single();
+
+      if (!sinistreData || !courrierData) {
+        throw new Error('Type sinistre ou courrier introuvable');
+      }
+
       const { error } = await supabase
         .from('modeles_courriers')
         .insert({
-          ...templateData,
+          nom_modele: templateData.nom_modele,
+          type_sinistre_id: sinistreData.id,
+          type_courrier_id: courrierData.id,
+          template_content: templateData.template_content,
           variables_requises: templateData.variables_requises as any,
+          actif: templateData.actif,
           created_by: (await supabase.auth.getUser()).data.user?.id
         });
 
@@ -109,11 +133,32 @@ export const useTemplates = () => {
         actif: boolean;
       }
     }) => {
+      // Get the IDs for the type codes
+      const { data: sinistreData } = await supabase
+        .from('types_sinistres')
+        .select('id')
+        .eq('code', templateData.type_sinistre)
+        .single();
+        
+      const { data: courrierData } = await supabase
+        .from('types_courriers')
+        .select('id')  
+        .eq('code', templateData.type_courrier)
+        .single();
+
+      if (!sinistreData || !courrierData) {
+        throw new Error('Type sinistre ou courrier introuvable');
+      }
+
       const { error } = await supabase
         .from('modeles_courriers')
         .update({
-          ...templateData,
+          nom_modele: templateData.nom_modele,
+          type_sinistre_id: sinistreData.id,
+          type_courrier_id: courrierData.id,
+          template_content: templateData.template_content,
           variables_requises: templateData.variables_requises as any,
+          actif: templateData.actif,
           updated_at: new Date().toISOString()
         })
         .eq('id', id);
