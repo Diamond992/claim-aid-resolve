@@ -90,7 +90,7 @@ const CourrierCard = ({ courrier, onValidate, onReject }: CourrierCardProps) => 
             <CardDescription>
               <strong>Client:</strong> {courrier.dossier?.profiles?.first_name} {courrier.dossier?.profiles?.last_name} ({courrier.dossier?.profiles?.email}) • 
               <strong> Compagnie:</strong> {courrier.dossier?.compagnie_assurance} • 
-              <strong> Type:</strong> {courrier.dossier?.type_sinistre} • 
+              <strong> Type:</strong> {courrier.dossier?.type_sinistre || 'N/A'} • 
               <strong> Créé:</strong> {new Date(courrier.date_creation).toLocaleDateString('fr-FR')}
             </CardDescription>
           </div>

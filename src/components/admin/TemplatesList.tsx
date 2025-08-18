@@ -11,13 +11,21 @@ import { Json } from "@/integrations/supabase/types";
 interface Template {
   id: string;
   nom_modele: string;
-  type_sinistre: string;
-  type_courrier: string;
+  type_sinistre_id: string;
+  type_courrier_id: string;
   template_content: string;
   variables_requises: Json;
   actif: boolean;
   created_at: string;
   updated_at: string;
+  types_sinistres?: {
+    code: string;
+    libelle: string;
+  };
+  types_courriers?: {
+    code: string;
+    libelle: string;
+  };
 }
 
 interface TemplatesListProps {
@@ -30,8 +38,8 @@ interface TemplatesListProps {
 const TemplatesList = ({ templates, onEdit, onDelete, onCreate }: TemplatesListProps) => {
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
 
-  const getTypeColor = (type: string) => {
-    switch (type) {
+  const getTypeColor = (code: string) => {
+    switch (code) {
       case 'auto': return 'bg-blue-100 text-blue-800';
       case 'habitation': return 'bg-green-100 text-green-800';
       case 'sante': return 'bg-purple-100 text-purple-800';
@@ -39,8 +47,8 @@ const TemplatesList = ({ templates, onEdit, onDelete, onCreate }: TemplatesListP
     }
   };
 
-  const getCourrierTypeColor = (type: string) => {
-    switch (type) {
+  const getCourrierTypeColor = (code: string) => {
+    switch (code) {
       case 'reclamation_interne': return 'bg-orange-100 text-orange-800';
       case 'mediation': return 'bg-yellow-100 text-yellow-800';
       case 'mise_en_demeure': return 'bg-red-100 text-red-800';
@@ -48,12 +56,12 @@ const TemplatesList = ({ templates, onEdit, onDelete, onCreate }: TemplatesListP
     }
   };
 
-  const formatCourrierType = (type: string) => {
-    switch (type) {
+  const formatCourrierType = (code: string) => {
+    switch (code) {
       case 'reclamation_interne': return 'Réclamation interne';
       case 'mediation': return 'Médiation';
       case 'mise_en_demeure': return 'Mise en demeure';
-      default: return type;
+      default: return code;
     }
   };
 
@@ -83,17 +91,17 @@ const TemplatesList = ({ templates, onEdit, onDelete, onCreate }: TemplatesListP
               <div className="flex justify-between items-start">
                 <div>
                   <CardTitle className="text-lg">{template.nom_modele}</CardTitle>
-                  <div className="flex gap-2 mt-2">
-                    <Badge className={getTypeColor(template.type_sinistre)}>
-                      {template.type_sinistre.charAt(0).toUpperCase() + template.type_sinistre.slice(1)}
-                    </Badge>
-                    <Badge className={getCourrierTypeColor(template.type_courrier)}>
-                      {formatCourrierType(template.type_courrier)}
-                    </Badge>
-                    <Badge variant={template.actif ? "default" : "secondary"}>
-                      {template.actif ? "Actif" : "Inactif"}
-                    </Badge>
-                  </div>
+                   <div className="flex gap-2 mt-2">
+                     <Badge className={getTypeColor(template.types_sinistres?.code || '')}>
+                       {template.types_sinistres?.libelle || 'N/A'}
+                     </Badge>
+                     <Badge className={getCourrierTypeColor(template.types_courriers?.code || '')}>
+                       {template.types_courriers?.libelle || 'N/A'}
+                     </Badge>
+                     <Badge variant={template.actif ? "default" : "secondary"}>
+                       {template.actif ? "Actif" : "Inactif"}
+                     </Badge>
+                   </div>
                 </div>
                 <div className="flex gap-2">
                   <Dialog>
@@ -112,14 +120,14 @@ const TemplatesList = ({ templates, onEdit, onDelete, onCreate }: TemplatesListP
                       </DialogHeader>
                       <ScrollArea className="max-h-[75vh] pr-4">
                         <div className="space-y-4">
-                          <div className="flex gap-2">
-                            <Badge className={getTypeColor(template.type_sinistre)}>
-                              {template.type_sinistre}
-                            </Badge>
-                            <Badge className={getCourrierTypeColor(template.type_courrier)}>
-                              {formatCourrierType(template.type_courrier)}
-                            </Badge>
-                          </div>
+                           <div className="flex gap-2">
+                             <Badge className={getTypeColor(template.types_sinistres?.code || '')}>
+                               {template.types_sinistres?.libelle || 'N/A'}
+                             </Badge>
+                             <Badge className={getCourrierTypeColor(template.types_courriers?.code || '')}>
+                               {template.types_courriers?.libelle || 'N/A'}
+                             </Badge>
+                           </div>
                           
                           <div>
                             <h4 className="font-semibold mb-2">Variables requises :</h4>

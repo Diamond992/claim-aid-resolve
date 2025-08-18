@@ -148,10 +148,10 @@ const AdminDossiersList = ({
                       <span className="font-medium">Compagnie:</span>
                       <div className="text-muted-foreground">{dossier.compagnie_assurance}</div>
                     </div>
-                    <div>
-                      <span className="font-medium">Type sinistre:</span>
-                      <div className="text-muted-foreground">{dossier.type_sinistre}</div>
-                    </div>
+                     <div>
+                       <span className="font-medium">Type sinistre:</span>
+                       <div className="text-muted-foreground">{dossier.type_sinistre || 'N/A'}</div>
+                     </div>
                     <div>
                       <span className="font-medium">Montant refusé:</span>
                       <div className="text-muted-foreground">{dossier.montant_refuse}€</div>
