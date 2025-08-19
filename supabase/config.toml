@@ -1,1 +1,4 @@
 project_id = "odemkncodjxdtxmkgqpr"
+
+[functions.generate-ai-courrier]
+verify_jwt = true
