@@ -21,7 +21,7 @@ export const AdminProtectedRoute = ({ children }: AdminProtectedRouteProps) => {
     }
 
     if (!isAdmin) {
-      navigate('/dashboard', { replace: true });
+      navigate('/', { replace: true });
       return;
     }
   }, [user, isAdmin, authLoading, roleLoading, navigate]);

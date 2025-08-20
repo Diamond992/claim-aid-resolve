@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { FileText, MessageSquare, Upload, User, LogOut, Plus, Eye } from "lucide-react";
+import { FileText, MessageSquare, Upload, User, LogOut, Plus, Eye, Settings } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,10 +11,12 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { useClaimFormProcessor } from "@/hooks/useClaimFormProcessor";
 import { DeleteDossierDialog } from "@/components/DeleteDossierDialog";
+import { useUserRole } from "@/hooks/useUserRole";
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const { user, signOut, isLoading: authLoading } = useAuth();
+  const { isAdmin } = useUserRole();
   const [profile, setProfile] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasProcessedClaims, setHasProcessedClaims] = useState(false);
@@ -209,6 +211,12 @@ const Dashboard = () => {
                 <User className="h-5 w-5 text-gray-400" />
                 <span className="text-gray-700">{displayName}</span>
               </div>
+              {isAdmin && (
+                <Button variant="outline" onClick={() => navigate('/admin')}>
+                  <Settings className="h-4 w-4 mr-2" />
+                  Administration
+                </Button>
+              )}
               <Button variant="outline" onClick={handleLogout}>
                 <LogOut className="h-4 w-4 mr-2" />
                 Déconnexion

@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminProtectedRoute } from "@/components/AdminProtectedRoute";
+import { useAuthRedirect } from "@/hooks/useAuthRedirect";
 import Index from "./pages/Index";
 import ClaimForm from "./pages/ClaimForm";
 import Login from "./pages/Login";
@@ -25,14 +26,11 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <AuthProvider>
-          <Routes>
+const AppContent = () => {
+  useAuthRedirect();
+  
+  return (
+    <Routes>
             {/* Public routes */}
             <Route path="/" element={<Index />} />
             
@@ -107,7 +105,18 @@ const App = () => (
             
             {/* Catch-all route */}
             <Route path="*" element={<NotFound />} />
-          </Routes>
+    </Routes>
+  );
+};
+
+const App = () => (
+  <QueryClientProvider client={queryClient}>
+    <TooltipProvider>
+      <Toaster />
+      <Sonner />
+      <BrowserRouter>
+        <AuthProvider>
+          <AppContent />
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
