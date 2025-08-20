@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { GenerateCourrierDialog } from "@/components/admin/GenerateCourrierDialog";
 import { useCourrierGenerator } from "@/hooks/useCourrierGenerator";
+import { useUserRole } from "@/hooks/useUserRole";
 import { useState } from "react";
 
 const DossierDetail = () => {
@@ -21,6 +22,7 @@ const DossierDetail = () => {
   const { toast } = useToast();
   const [showGenerateDialog, setShowGenerateDialog] = useState(false);
   const { generateCourrier } = useCourrierGenerator();
+  const { isAdmin } = useUserRole();
 
   if (isLoading) {
     return (
@@ -209,13 +211,15 @@ const DossierDetail = () => {
             <MessageCircle className="h-4 w-4" />
             Messages
           </Button>
-          <Button 
-            onClick={() => setShowGenerateDialog(true)}
-            className="flex items-center gap-2"
-          >
-            <Plus className="h-4 w-4" />
-            Générer courrier
-          </Button>
+          {isAdmin && (
+            <Button 
+              onClick={() => setShowGenerateDialog(true)}
+              className="flex items-center gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              Générer courrier
+            </Button>
+          )}
         </div>
 
         <div className="grid gap-6 lg:grid-cols-3">

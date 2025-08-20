@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { CourrierGenerator } from "@/services/courrierGenerator";
+import { useUserRole } from "@/hooks/useUserRole";
 import { toast } from "sonner";
 
 interface AICourrierParams {
@@ -12,9 +13,13 @@ interface AICourrierParams {
 
 export const useAICourrierGenerator = () => {
   const queryClient = useQueryClient();
+  const { isAdmin } = useUserRole();
 
   const generateAICourrierMutation = useMutation({
     mutationFn: async ({ dossierId, typeCourrier, tone = 'ferme', length = 'moyen' }: AICourrierParams) => {
+      if (!isAdmin) {
+        throw new Error('Accès non autorisé: seuls les administrateurs peuvent générer des courriers');
+      }
       // Générer le contenu avec l'IA
       const { data, error } = await supabase.functions.invoke('generate-ai-courrier', {
         body: { 
