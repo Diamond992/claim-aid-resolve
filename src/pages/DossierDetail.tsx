@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, FileText, Mail, Calendar, AlertTriangle, Upload, Edit, MessageCircle, Eye, Download, Plus } from "lucide-react";
 import { DocumentUpload } from "@/components/DocumentUpload";
 import { EditDossier } from "@/components/EditDossier";
+import AdminEditDossier from "@/components/admin/AdminEditDossier";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
@@ -21,6 +22,7 @@ const DossierDetail = () => {
   const { data, isLoading, error, refetch } = useDossierDetail(id!);
   const { toast } = useToast();
   const [showGenerateDialog, setShowGenerateDialog] = useState(false);
+  const [showAdminEditDialog, setShowAdminEditDialog] = useState(false);
   const { generateCourrier } = useCourrierGenerator();
   const { isAdmin } = useUserRole();
 
@@ -65,6 +67,61 @@ const DossierDetail = () => {
     
     setShowGenerateDialog(false);
     refetch();
+  };
+
+  const handleAdminSaveDossier = async (dossierData: any) => {
+    try {
+      const { error } = await supabase
+        .from('dossiers')
+        .update({
+          statut: dossierData.statut,
+          compagnie_assurance: dossierData.compagnie_assurance,
+          police_number: dossierData.police_number,
+          type_sinistre: dossierData.type_sinistre,
+          date_sinistre: dossierData.date_sinistre,
+          refus_date: dossierData.refus_date,
+          montant_refuse: parseFloat(dossierData.montant_refuse),
+          motif_refus: dossierData.motif_refus,
+          adresse_assureur: dossierData.adresse_assureur
+        })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Succès",
+        description: "Dossier mis à jour avec succès"
+      });
+
+      setShowAdminEditDialog(false);
+      refetch();
+
+      // Suggest regenerating courriers if any exist
+      if (courriers.length > 0) {
+        setTimeout(() => {
+          toast({
+            title: "Suggestion",
+            description: "Les données du dossier ont été modifiées. Voulez-vous régénérer les courriers pour refléter ces changements ?",
+            action: (
+              <Button
+                size="sm"
+                onClick={() => setShowGenerateDialog(true)}
+                className="ml-2"
+              >
+                Régénérer
+              </Button>
+            ),
+          });
+        }, 1000);
+      }
+    } catch (error) {
+      console.error('Error updating dossier:', error);
+      toast({
+        title: "Erreur",
+        description: "Erreur lors de la mise à jour du dossier",
+        variant: "destructive"
+      });
+    }
   };
 
   const getStatutBadgeVariant = (statut: string) => {
@@ -202,7 +259,17 @@ const DossierDetail = () => {
 
         {/* Actions rapides */}
         <div className="flex flex-wrap gap-4 mb-8">
-          <EditDossier dossier={dossier} onUpdateSuccess={refetch} />
+          {isAdmin ? (
+            <Button 
+              onClick={() => setShowAdminEditDialog(true)}
+              className="flex items-center gap-2"
+            >
+              <Edit className="h-4 w-4" />
+              Modifier le dossier (Admin)
+            </Button>
+          ) : (
+            <EditDossier dossier={dossier} onUpdateSuccess={refetch} />
+          )}
           <Button 
             variant="outline" 
             onClick={() => navigate(`/case/${id}/messages`)}
@@ -401,6 +468,16 @@ const DossierDetail = () => {
               profiles: dossier.profiles
             }}
             onGenerate={handleGenerateCourrier}
+          />
+        )}
+
+        {/* Admin Edit Dossier Dialog */}
+        {isAdmin && dossier && (
+          <AdminEditDossier
+            dossier={dossier}
+            isOpen={showAdminEditDialog}
+            onClose={() => setShowAdminEditDialog(false)}
+            onSave={handleAdminSaveDossier}
           />
         )}
       </div>

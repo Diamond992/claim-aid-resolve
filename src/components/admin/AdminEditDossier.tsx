@@ -30,8 +30,7 @@ const AdminEditDossier = ({ dossier, isOpen, onClose, onSave }: AdminEditDossier
     montant_refuse: dossier?.montant_refuse || '',
     motif_refus: dossier?.motif_refus || '',
     adresse_assureur: dossier?.adresse_assureur || {
-      nom: '',
-      adresse: '',
+      rue: '',
       code_postal: '',
       ville: '',
     }
@@ -153,6 +152,7 @@ const AdminEditDossier = ({ dossier, isOpen, onClose, onSave }: AdminEditDossier
                     selected={formData.date_sinistre}
                     onSelect={(date) => updateFormData('date_sinistre', date)}
                     initialFocus
+                    className="p-3 pointer-events-auto"
                   />
                 </PopoverContent>
               </Popover>
@@ -183,6 +183,7 @@ const AdminEditDossier = ({ dossier, isOpen, onClose, onSave }: AdminEditDossier
                     selected={formData.refus_date}
                     onSelect={(date) => updateFormData('refus_date', date)}
                     initialFocus
+                    className="p-3 pointer-events-auto"
                   />
                 </PopoverContent>
               </Popover>
@@ -213,26 +214,16 @@ const AdminEditDossier = ({ dossier, isOpen, onClose, onSave }: AdminEditDossier
           </div>
 
           {/* Insurance Company Address */}
-          <div className="space-y-4">
+          <div className="space-y-4 p-4 bg-muted/50 rounded-lg">
             <Label className="text-lg font-semibold">Adresse de l'assureur</Label>
             
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="nom_assureur">Nom</Label>
-                <Input
-                  id="nom_assureur"
-                  value={formData.adresse_assureur.nom}
-                  onChange={(e) => updateAdresseField('nom', e.target.value)}
-                />
-              </div>
-            </div>
-
             <div>
-              <Label htmlFor="adresse_assureur">Adresse</Label>
+              <Label htmlFor="adresse_rue">Rue</Label>
               <Input
-                id="adresse_assureur"
-                value={formData.adresse_assureur.adresse}
-                onChange={(e) => updateAdresseField('adresse', e.target.value)}
+                id="adresse_rue"
+                value={formData.adresse_assureur.rue || ''}
+                onChange={(e) => updateAdresseField('rue', e.target.value)}
+                placeholder="Numéro et nom de rue"
               />
             </div>
 
@@ -241,16 +232,18 @@ const AdminEditDossier = ({ dossier, isOpen, onClose, onSave }: AdminEditDossier
                 <Label htmlFor="code_postal_assureur">Code postal</Label>
                 <Input
                   id="code_postal_assureur"
-                  value={formData.adresse_assureur.code_postal}
+                  value={formData.adresse_assureur.code_postal || ''}
                   onChange={(e) => updateAdresseField('code_postal', e.target.value)}
+                  placeholder="Code postal"
                 />
               </div>
               <div>
                 <Label htmlFor="ville_assureur">Ville</Label>
                 <Input
                   id="ville_assureur"
-                  value={formData.adresse_assureur.ville}
+                  value={formData.adresse_assureur.ville || ''}
                   onChange={(e) => updateAdresseField('ville', e.target.value)}
+                  placeholder="Ville"
                 />
               </div>
             </div>
