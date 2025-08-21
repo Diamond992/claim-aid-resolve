@@ -10,7 +10,7 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { Navigate, useNavigate } from "react-router-dom";
 
 const AdminDashboard = () => {
-  const [activeTab, setActiveTab] = useState("courriers");
+  const [activeTab, setActiveTab] = useState("dossiers");
   const { courriers, echeances, payments, dossiers, allDossiers, templates, isLoading } = useAdminData();
   const { user, signOut, isLoading: authLoading } = useAuth();
   const { isAdmin, isLoading: roleLoading } = useUserRole();

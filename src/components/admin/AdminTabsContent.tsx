@@ -128,7 +128,7 @@ export const AdminTabsContent = ({
     }
   };
   return (
-    <Tabs defaultValue="courriers" className="w-full">
+    <Tabs defaultValue="dossiers" className="w-full">
       <TabsList className="grid w-full grid-cols-12 md:grid-cols-6 lg:grid-cols-12">
         <TabsTrigger value="courriers">Courriers</TabsTrigger>
         <TabsTrigger value="echeances">Échéances</TabsTrigger>
