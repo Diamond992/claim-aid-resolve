@@ -5,6 +5,11 @@ export const useDossierDetail = (dossierId: string) => {
   return useQuery({
     queryKey: ['dossier-detail', dossierId],
     queryFn: async () => {
+      // Debug: Check authentication status
+      const { data: { user } } = await supabase.auth.getUser();
+      console.log('useDossierDetail - Auth user:', user?.id);
+      console.log('useDossierDetail - Fetching dossier:', dossierId);
+
       const { data: dossier, error: dossierError } = await supabase
         .from('dossiers')
         .select(`
@@ -16,9 +21,19 @@ export const useDossierDetail = (dossierId: string) => {
           )
         `)
         .eq('id', dossierId)
-        .single();
+        .maybeSingle();
 
-      if (dossierError) throw dossierError;
+      if (dossierError) {
+        console.error('useDossierDetail - Dossier fetch error:', dossierError);
+        throw dossierError;
+      }
+
+      if (!dossier) {
+        console.warn('useDossierDetail - No dossier found for ID:', dossierId);
+        throw new Error(`Dossier not found or access denied for ID: ${dossierId}`);
+      }
+
+      console.log('useDossierDetail - Dossier found:', dossier.id);
 
       // Fetch related data in parallel
       const [documentsResponse, courriersResponse, echeancesResponse] = await Promise.all([
@@ -40,9 +55,24 @@ export const useDossierDetail = (dossierId: string) => {
           .order('date_limite', { ascending: true })
       ]);
 
-      if (documentsResponse.error) throw documentsResponse.error;
-      if (courriersResponse.error) throw courriersResponse.error;
-      if (echeancesResponse.error) throw echeancesResponse.error;
+      if (documentsResponse.error) {
+        console.error('useDossierDetail - Documents fetch error:', documentsResponse.error);
+        throw documentsResponse.error;
+      }
+      if (courriersResponse.error) {
+        console.error('useDossierDetail - Courriers fetch error:', courriersResponse.error);
+        throw courriersResponse.error;
+      }
+      if (echeancesResponse.error) {
+        console.error('useDossierDetail - Echeances fetch error:', echeancesResponse.error);
+        throw echeancesResponse.error;
+      }
+
+      console.log('useDossierDetail - Data fetched successfully:', {
+        documentsCount: documentsResponse.data?.length || 0,
+        courriersCount: courriersResponse.data?.length || 0,
+        echeancesCount: echeancesResponse.data?.length || 0
+      });
 
       return {
         dossier,
