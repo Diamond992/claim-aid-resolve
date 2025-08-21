@@ -1,13 +1,18 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useUserRole } from "@/hooks/useUserRole";
 
 export const useDossierDetail = (dossierId: string) => {
+  const { userRole, isAdmin } = useUserRole();
+  
   return useQuery({
     queryKey: ['dossier-detail', dossierId],
     queryFn: async () => {
       // Debug: Check authentication status
       const { data: { user } } = await supabase.auth.getUser();
       console.log('useDossierDetail - Auth user:', user?.id);
+      console.log('useDossierDetail - User role:', userRole);
+      console.log('useDossierDetail - Is admin:', isAdmin);
       console.log('useDossierDetail - Fetching dossier:', dossierId);
 
       const { data: dossier, error: dossierError } = await supabase
@@ -30,7 +35,10 @@ export const useDossierDetail = (dossierId: string) => {
 
       if (!dossier) {
         console.warn('useDossierDetail - No dossier found for ID:', dossierId);
-        throw new Error(`Dossier not found or access denied for ID: ${dossierId}`);
+        const errorMessage = isAdmin 
+          ? `Dossier not found in database for ID: ${dossierId}`
+          : `Dossier not found or access denied for ID: ${dossierId}`;
+        throw new Error(errorMessage);
       }
 
       console.log('useDossierDetail - Dossier found:', dossier.id);

@@ -94,10 +94,9 @@ const AdminEditDossier = ({ dossier, isOpen, onClose, onSave }: AdminEditDossier
                   <SelectValue placeholder="Type de sinistre" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="assurance_habitation">Assurance habitation</SelectItem>
-                  <SelectItem value="assurance_auto">Assurance auto</SelectItem>
-                  <SelectItem value="assurance_sante">Assurance santé</SelectItem>
-                  <SelectItem value="assurance_vie">Assurance vie</SelectItem>
+                  <SelectItem value="habitation">Assurance habitation</SelectItem>
+                  <SelectItem value="auto">Assurance auto</SelectItem>
+                  <SelectItem value="sante">Assurance santé</SelectItem>
                   <SelectItem value="autre">Autre</SelectItem>
                 </SelectContent>
               </Select>
