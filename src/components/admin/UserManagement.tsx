@@ -148,132 +148,53 @@ const UserManagement = () => {
   const handleDeleteUser = async (userId: string) => {
     setDeletingUserId(userId);
     try {
-      console.log('Deleting user:', userId);
-
-      // First, get the dossier IDs for this user
-      const { data: dossiers, error: dossiersError } = await supabase
-        .from('dossiers')
-        .select('id')
-        .eq('client_id', userId);
-
-      if (dossiersError) {
-        console.error('Error fetching dossiers:', dossiersError);
-        throw dossiersError;
+      console.log('Deleting user with secure RPC function:', userId);
+      
+      // Verify admin permissions before attempting deletion
+      if (!isAdmin) {
+        throw new Error('Unauthorized: admin role required');
       }
 
-      const dossierIds = dossiers?.map(d => d.id) || [];
-
-      // Delete related data in the correct order
-      const { error: docsError } = await supabase
-        .from('documents')
-        .delete()
-        .eq('uploaded_by', userId);
-
-      if (docsError) {
-        console.error('Error deleting documents:', docsError);
-        throw docsError;
+      // Get current user to prevent self-deletion check on client side
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user?.id === userId) {
+        throw new Error('Cannot delete your own user account');
       }
 
-      // Delete courriers if there are dossiers
-      if (dossierIds.length > 0) {
-        const { error: courriersError } = await supabase
-          .from('courriers_projets')
-          .delete()
-          .in('dossier_id', dossierIds);
-
-        if (courriersError) {
-          console.error('Error deleting courriers:', courriersError);
-          throw courriersError;
-        }
-
-        const { error: echeancesError } = await supabase
-          .from('echeances')
-          .delete()
-          .in('dossier_id', dossierIds);
-
-        if (echeancesError) {
-          console.error('Error deleting echeances:', echeancesError);
-          throw echeancesError;
-        }
-      }
-
-      const { error: paymentsError } = await supabase
-        .from('paiements')
-        .delete()
-        .eq('client_id', userId);
-
-      if (paymentsError) {
-        console.error('Error deleting payments:', paymentsError);
-        throw paymentsError;
-      }
-
-      const { error: dossiersDeleteError } = await supabase
-        .from('dossiers')
-        .delete()
-        .eq('client_id', userId);
-
-      if (dossiersDeleteError) {
-        console.error('Error deleting dossiers:', dossiersDeleteError);
-        throw dossiersDeleteError;
-      }
-
-      const { error: rolesError } = await supabase
-        .from('user_roles')
-        .delete()
-        .eq('user_id', userId);
-
-      if (rolesError) {
-        console.error('Error deleting user roles:', rolesError);
-        throw rolesError;
-      }
-
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .delete()
-        .eq('id', userId);
-
-      if (profileError) {
-        console.error('Error deleting profile:', profileError);
-        throw profileError;
-      }
-
-      // STEP 1: Delete from auth.users FIRST to prevent "already registered" issues
-      console.log('Deleting user from auth.users:', userId);
-      const { error: authError } = await supabase.auth.admin.deleteUser(userId);
-
-      if (authError) {
-        console.error('Error deleting user from auth:', authError);
-        await supabase.rpc('log_admin_action', {
-          action_type: 'USER_AUTH_DELETE_FAILED',
-          target_user: userId,
-          action_details: { 
-            error: authError.message,
-            timestamp: new Date().toISOString()
-          }
-        });
-        toast.error(`Erreur lors de la suppression du compte: ${authError.message}`);
-        setDeletingUserId(null);
-        return;
-      }
-
-      console.log('User successfully deleted from auth.users');
-
-      // STEP 2: Now delete from public schema tables
-
-      await supabase.rpc('log_admin_action', {
-        action_type: 'USER_DELETED',
-        target_user: userId,
-        action_details: { 
-          deleted_at: new Date().toISOString(),
-          auth_deleted: true
-        }
+      // Call the secure RPC function that handles the entire deletion process
+      const { data, error } = await supabase.rpc('secure_delete_user', {
+        target_user_id: userId
       });
 
-      toast.success("Utilisateur supprimé complètement avec succès");
+      if (error) {
+        console.error('Error from secure_delete_user RPC:', error);
+        throw error;
+      }
+
+      if (data !== true) {
+        throw new Error('User deletion failed - RPC returned false');
+      }
+
+      console.log('User successfully deleted via secure RPC function');
+      toast.success("Utilisateur supprimé avec succès");
       await fetchUsers();
     } catch (error: any) {
       console.error('Error deleting user:', error);
-      toast.error(error.message || "Erreur lors de la suppression de l'utilisateur");
+      
+      // Provide specific error messages based on error type
+      let errorMessage = "Erreur lors de la suppression de l'utilisateur";
+      
+      if (error.message?.includes('Cannot delete your own')) {
+        errorMessage = "Vous ne pouvez pas supprimer votre propre compte";
+      } else if (error.message?.includes('Unauthorized')) {
+        errorMessage = "Permissions insuffisantes pour cette action";
+      } else if (error.message?.includes('User not found')) {
+        errorMessage = "Utilisateur introuvable";
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      toast.error(errorMessage);
     } finally {
       setDeletingUserId(null);
     }

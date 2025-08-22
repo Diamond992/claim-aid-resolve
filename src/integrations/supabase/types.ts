@@ -854,6 +854,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      secure_delete_user: {
+        Args: { target_user_id: string }
+        Returns: boolean
+      }
       verify_auth_before_insert: {
         Args: Record<PropertyKey, never>
         Returns: boolean
