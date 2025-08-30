@@ -87,6 +87,16 @@ const isValidClaimData = (data: any): data is ClaimFormData => {
 export const processClaimFormData = async (authContext: any): Promise<boolean> => {
   console.log('🚀 Starting claim form processing...');
 
+  // Immediately clear claim data to prevent duplicate processing
+  const claimDataBackup = localStorage.getItem('claimFormData');
+  if (claimDataBackup) {
+    localStorage.removeItem('claimFormData');
+    console.log('🧹 Claim data moved from localStorage to prevent duplicates');
+  } else {
+    console.log('ℹ️ No claim data found in localStorage');
+    return false;
+  }
+
   try {
     // Step 1: Check authentication state
     console.log('🔐 Step 1: Checking authentication state...');
@@ -113,21 +123,19 @@ export const processClaimFormData = async (authContext: any): Promise<boolean> =
 
     // Step 2: Validate and clean claim data
     console.log('📋 Step 2: Validating and cleaning claim form data...');
-    const claimData = localStorage.getItem('claimFormData');
     
-    if (!claimData) {
-      console.error('❌ No claim data found in localStorage');
+    if (!claimDataBackup) {
+      console.error('❌ No claim data backup available');
       toast.error("Aucune donnée de réclamation trouvée. Veuillez recommencer le processus.");
       return false;
     }
 
     let parsedData: any;
     try {
-      parsedData = JSON.parse(claimData);
+      parsedData = JSON.parse(claimDataBackup);
       console.log('📊 Raw parsed claim data:', parsedData);
     } catch (error) {
       console.error('❌ Failed to parse claim data:', error);
-      localStorage.removeItem('claimFormData');
       toast.error("Données de réclamation corrompues. Veuillez recommencer.");
       return false;
     }
@@ -140,7 +148,6 @@ export const processClaimFormData = async (authContext: any): Promise<boolean> =
     // Validate cleaned data
     if (!isValidClaimData(cleanedData)) {
       console.error('❌ Claim data validation failed after cleaning');
-      localStorage.removeItem('claimFormData');
       toast.error("Les données du formulaire sont incomplètes ou corrompues. Veuillez recommencer en remplissant tous les champs requis.");
       return false;
     }
@@ -152,7 +159,6 @@ export const processClaimFormData = async (authContext: any): Promise<boolean> =
     if (isNaN(claimedAmount) || claimedAmount <= 0) {
       console.error('❌ Invalid claimed amount:', cleanedData.claimedAmount);
       toast.error("Le montant réclamé doit être un nombre positif valide.");
-      localStorage.removeItem('claimFormData');
       return false;
     }
 
@@ -163,14 +169,12 @@ export const processClaimFormData = async (authContext: any): Promise<boolean> =
     if (isNaN(accidentDate.getTime())) {
       console.error('❌ Invalid accident date:', cleanedData.accidentDate);
       toast.error("Date du sinistre invalide.");
-      localStorage.removeItem('claimFormData');
       return false;
     }
     
     if (isNaN(refusalDate.getTime())) {
       console.error('❌ Invalid refusal date:', cleanedData.refusalDate);
       toast.error("Date du refus invalide.");
-      localStorage.removeItem('claimFormData');
       return false;
     }
 
@@ -257,16 +261,14 @@ export const processClaimFormData = async (authContext: any): Promise<boolean> =
 
     console.log('✅ Dossier created successfully with ID:', dossierId);
 
-    // Step 5: Clean up and show success
-    localStorage.removeItem('claimFormData');
+    // Step 5: Show success (data already cleaned up at start)
     toast.success("Votre dossier a été créé avec succès !");
     
     return true;
 
   } catch (error) {
     console.error('❌ Claim form processing error:', error);
-    // Clean up corrupted data on any error
-    localStorage.removeItem('claimFormData');
+    // Data already cleaned up at start to prevent duplicates
     toast.error("Une erreur inattendue s'est produite lors du traitement de votre réclamation.");
     return false;
   }
