@@ -1,5 +1,6 @@
 
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -37,6 +38,7 @@ export const UserCard = ({
   onDeleteUser,
   isDeleting = false 
 }: UserCardProps) => {
+  const navigate = useNavigate();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [dossiersExpanded, setDossiersExpanded] = useState(false);
   const { data: dossiers = [], isLoading: dossiersLoading } = useUserDossiers(user.id);
@@ -221,7 +223,7 @@ export const UserCard = ({
                               variant="ghost"
                               size="sm"
                               className="h-6 px-2 text-xs"
-                              onClick={() => window.open(`/dossier/${dossier.id}`, '_blank')}
+                              onClick={() => navigate(`/case/${dossier.id}`)}
                             >
                               Voir
                             </Button>
