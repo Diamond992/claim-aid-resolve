@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { User, Mail, Shield, Trash2, ChevronDown, ChevronRight, FolderOpen, FileText, Calendar, AlertCircle } from "lucide-react";
+import { User, Mail, Shield, Trash2, ChevronDown, ChevronRight, FolderOpen, FileText, Calendar, AlertCircle, Eye, ExternalLink } from "lucide-react";
 import { Database } from "@/integrations/supabase/types";
 import { DeleteUserDialog } from "./DeleteUserDialog";
 import { useUserDossiers } from "@/hooks/useUserDossiers";
@@ -136,6 +136,17 @@ export const UserCard = ({
                       {dossiersStats.echéancesUrgentes} urgente{dossiersStats.echéancesUrgentes !== 1 ? 's' : ''}
                     </Badge>
                   )}
+                  {dossiersStats.total === 1 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => navigate(`/case/${dossiers[0]?.id}`)}
+                      className="h-6 px-2 text-xs gap-1 border-primary/20 text-primary hover:bg-primary/10"
+                    >
+                      <Eye className="h-3 w-3" />
+                      Voir le dossier
+                    </Button>
+                  )}
                 </div>
               </div>
             </div>
@@ -147,17 +158,24 @@ export const UserCard = ({
                 {getRoleIcon(user.role)}
                 {getRoleLabel(user.role)}
               </Badge>
-              {dossiersStats.total > 0 && (
+              {dossiersStats.total > 1 && (
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => setDossiersExpanded(!dossiersExpanded)}
-                  className="text-muted-foreground hover:text-foreground"
+                  className="text-muted-foreground hover:text-foreground gap-1"
+                  title={`${dossiersExpanded ? 'Masquer' : 'Voir'} les ${dossiersStats.total} dossiers`}
                 >
                   {dossiersExpanded ? (
-                    <ChevronDown className="h-4 w-4" />
+                    <>
+                      <ChevronDown className="h-4 w-4" />
+                      <span className="text-xs">Masquer</span>
+                    </>
                   ) : (
-                    <ChevronRight className="h-4 w-4" />
+                    <>
+                      <ChevronRight className="h-4 w-4" />
+                      <span className="text-xs">Voir tout</span>
+                    </>
                   )}
                 </Button>
               )}
@@ -189,7 +207,7 @@ export const UserCard = ({
             </div>
           </div>
           
-          {dossiersStats.total > 0 && (
+          {dossiersStats.total > 1 && (
             <Collapsible open={dossiersExpanded} onOpenChange={setDossiersExpanded}>
               <CollapsibleContent className="mt-4 pt-4 border-t">
                 {dossiersLoading ? (
@@ -222,9 +240,10 @@ export const UserCard = ({
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-6 px-2 text-xs"
+                              className="h-6 px-2 text-xs gap-1 hover:bg-primary/10 hover:text-primary"
                               onClick={() => navigate(`/case/${dossier.id}`)}
                             >
+                              <ExternalLink className="h-3 w-3" />
                               Voir
                             </Button>
                           </div>
