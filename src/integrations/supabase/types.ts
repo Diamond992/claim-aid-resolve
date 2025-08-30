@@ -774,6 +774,10 @@ export type Database = {
         Args: { dossier_id: string; user_id: string }
         Returns: boolean
       }
+      can_email_be_reused: {
+        Args: { check_email: string }
+        Returns: Json
+      }
       create_dossier_secure: {
         Args: {
           p_adresse_assureur?: Json
@@ -807,6 +811,14 @@ export type Database = {
       generate_admin_invite: {
         Args: { admin_email: string }
         Returns: string
+      }
+      get_orphaned_auth_users: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          created_at: string
+          email: string
+          user_id: string
+        }[]
       }
       get_user_role: {
         Args: { user_id: string }
