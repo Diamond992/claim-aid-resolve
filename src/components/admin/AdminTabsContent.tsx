@@ -73,10 +73,6 @@ export const AdminTabsContent = ({
     isUpdating 
   } = useTemplates();
 
-  const handleViewDossier = (dossierId: string) => {
-    // Navigate to correct dossier detail route
-    navigate(`/case/${dossierId}`);
-  };
 
   const handleEditDossier = (dossierId: string) => {
     const dossier = allDossiers.find(d => d.id === dossierId);
@@ -175,7 +171,6 @@ export const AdminTabsContent = ({
         <AdminDossiersList 
           dossiers={allDossiers}
           isLoading={isLoading}
-          onViewDossier={handleViewDossier}
           onEditDossier={handleEditDossier}
           onDeleteDossier={onDeleteDossier}
         />

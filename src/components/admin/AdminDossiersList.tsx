@@ -4,14 +4,13 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Search, Eye, Edit, Trash2 } from "lucide-react";
+import { Search, Edit, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 
 interface AdminDossiersListProps {
   dossiers: any[];
   isLoading: boolean;
-  onViewDossier: (dossierId: string) => void;
   onEditDossier: (dossierId: string) => void;
   onDeleteDossier: (dossierId: string) => void;
 }
@@ -27,7 +26,6 @@ const STATUT_COLORS = {
 const AdminDossiersList = ({ 
   dossiers, 
   isLoading, 
-  onViewDossier,
   onEditDossier,
   onDeleteDossier 
 }: AdminDossiersListProps) => {
@@ -186,13 +184,6 @@ const AdminDossiersList = ({
                 </div>
 
                 <div className="flex gap-2 ml-4">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => onViewDossier(dossier.id)}
-                  >
-                    <Eye className="h-4 w-4" />
-                  </Button>
                   <Button
                     variant="outline"
                     size="sm"
