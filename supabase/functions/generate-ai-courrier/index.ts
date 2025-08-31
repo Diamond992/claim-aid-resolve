@@ -15,6 +15,8 @@ serve(async (req) => {
   try {
     const { dossierId, typeCourrier, tone = 'ferme', length = 'moyen' } = await req.json();
     
+    console.log('Generate AI courrier request:', { dossierId, typeCourrier, tone, length });
+    
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
@@ -107,11 +109,20 @@ ${context.adresseAssureur ? `- Adresse assureur: ${JSON.stringify(context.adress
 
 Rédigez le courrier complet en tenant compte de tous ces éléments.`;
 
-    // Appeler l'API OpenAI
+    // Vérifier la clé OpenAI
+    const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+    if (!openAIApiKey) {
+      console.error('OPENAI_API_KEY is not configured');
+      throw new Error('Configuration manquante: clé OpenAI non configurée');
+    }
+
+    console.log('Calling OpenAI API with model: gpt-4.1-2025-04-14');
+
+    // Appeler l'API OpenAI avec les paramètres corrects pour GPT-4.1+
     const openAIResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${Deno.env.get('OPENAI_API_KEY')}`,
+        'Authorization': `Bearer ${openAIApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -120,13 +131,24 @@ Rédigez le courrier complet en tenant compte de tous ces éléments.`;
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
-        max_tokens: 1500,
-        temperature: 0.3
+        max_completion_tokens: 1500  // Paramètre correct pour GPT-4.1+
+        // Note: temperature n'est pas supporté par GPT-4.1+
       }),
     });
 
+    console.log('OpenAI API response status:', openAIResponse.status);
+
     if (!openAIResponse.ok) {
-      throw new Error(`OpenAI API error: ${openAIResponse.statusText}`);
+      const errorText = await openAIResponse.text();
+      console.error('OpenAI API error details:', errorText);
+      
+      if (openAIResponse.status === 429) {
+        throw new Error('Limite de taux OpenAI atteinte. Veuillez réessayer dans quelques minutes.');
+      } else if (openAIResponse.status === 401) {
+        throw new Error('Clé API OpenAI invalide ou manquante.');
+      } else {
+        throw new Error(`Erreur OpenAI API (${openAIResponse.status}): ${errorText}`);
+      }
     }
 
     const openAIData = await openAIResponse.json();
