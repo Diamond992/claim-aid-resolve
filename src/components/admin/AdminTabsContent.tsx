@@ -18,6 +18,10 @@ import { CompatibilityMatrix } from "./CompatibilityMatrix";
 import { useTemplates } from "@/hooks/useTemplates";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { GenerateCourrierDialog } from "./GenerateCourrierDialog";
+import { useDossierDetail } from "@/hooks/useDossierDetail";
+import { useCourrierGenerator } from "@/hooks/useCourrierGenerator";
+import { useAICourrierGenerator } from "@/hooks/useAICourrierGenerator";
 
 interface AdminTabsContentProps {
   courriers: any[];
@@ -62,7 +66,13 @@ export const AdminTabsContent = ({
   const [editingDossier, setEditingDossier] = useState<any>(null);
   const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<any>(null);
+  const [selectedDossierId, setSelectedDossierId] = useState<string | null>(null);
+  const [isGenerateCourrierOpen, setIsGenerateCourrierOpen] = useState(false);
   const navigate = useNavigate();
+  
+  const { data: dossierDetail } = useDossierDetail(selectedDossierId || '');
+  const { generateCourrier } = useCourrierGenerator();
+  const { generateAICourrier } = useAICourrierGenerator();
   
   const { 
     createTemplate, 
@@ -123,6 +133,23 @@ export const AdminTabsContent = ({
       deleteTemplate(id);
     }
   };
+
+  // Generate courrier handlers
+  const handleGenerateCourrier = (dossierId: string) => {
+    setSelectedDossierId(dossierId);
+    setIsGenerateCourrierOpen(true);
+  };
+
+  const handleGenerateCourrierSubmit = async (templateId: string, typeCourrier: string, contenuGenere: string) => {
+    generateCourrier({
+      dossierId: selectedDossierId!,
+      templateId,
+      typeCourrier: typeCourrier as 'reclamation_interne' | 'mediation' | 'mise_en_demeure',
+      contenuGenere
+    });
+    setIsGenerateCourrierOpen(false);
+    setSelectedDossierId(null);
+  };
   return (
     <Tabs defaultValue="dossiers" className="w-full">
       <TabsList className="grid w-full grid-cols-12 md:grid-cols-6 lg:grid-cols-12">
@@ -173,6 +200,7 @@ export const AdminTabsContent = ({
           isLoading={isLoading}
           onEditDossier={handleEditDossier}
           onDeleteDossier={onDeleteDossier}
+          onGenerateCourrier={handleGenerateCourrier}
         />
       </TabsContent>
 
@@ -243,6 +271,30 @@ export const AdminTabsContent = ({
         onSave={handleSaveTemplate}
         isLoading={isCreating || isUpdating}
       />
+
+      {/* Generate Courrier Dialog */}
+      {selectedDossierId && dossierDetail && (
+        <GenerateCourrierDialog
+          open={isGenerateCourrierOpen}
+          onClose={() => {
+            setIsGenerateCourrierOpen(false);
+            setSelectedDossierId(null);
+          }}
+          dossier={{
+            id: dossierDetail.dossier.id,
+            client_id: dossierDetail.dossier.client_id,
+            type_sinistre: dossierDetail.dossier.type_sinistre,
+            date_sinistre: dossierDetail.dossier.date_sinistre,
+            montant_refuse: dossierDetail.dossier.montant_refuse,
+            refus_date: dossierDetail.dossier.refus_date,
+            police_number: dossierDetail.dossier.police_number,
+            compagnie_assurance: dossierDetail.dossier.compagnie_assurance,
+            motif_refus: dossierDetail.dossier.motif_refus || '',
+            profiles: dossierDetail.dossier.profiles
+          }}
+          onGenerate={handleGenerateCourrierSubmit}
+        />
+      )}
     </Tabs>
   );
 };

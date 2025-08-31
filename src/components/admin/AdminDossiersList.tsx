@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Search, Edit, Trash2 } from "lucide-react";
+import { Search, Edit, Trash2, FileText } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 
@@ -13,6 +13,7 @@ interface AdminDossiersListProps {
   isLoading: boolean;
   onEditDossier: (dossierId: string) => void;
   onDeleteDossier: (dossierId: string) => void;
+  onGenerateCourrier: (dossierId: string) => void;
 }
 
 const STATUT_COLORS = {
@@ -27,7 +28,8 @@ const AdminDossiersList = ({
   dossiers, 
   isLoading, 
   onEditDossier,
-  onDeleteDossier 
+  onDeleteDossier,
+  onGenerateCourrier 
 }: AdminDossiersListProps) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -184,6 +186,14 @@ const AdminDossiersList = ({
                 </div>
 
                 <div className="flex gap-2 ml-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onGenerateCourrier(dossier.id)}
+                    title="Générer un courrier"
+                  >
+                    <FileText className="h-4 w-4" />
+                  </Button>
                   <Button
                     variant="outline"
                     size="sm"
