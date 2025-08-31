@@ -116,9 +116,9 @@ Rédigez le courrier complet en tenant compte de tous ces éléments.`;
       throw new Error('Configuration manquante: clé OpenAI non configurée');
     }
 
-    console.log('Calling OpenAI API with model: gpt-4.1-2025-04-14');
+    console.log('Calling OpenAI API with model: gpt-4o-mini (temporary fallback)');
 
-    // Appeler l'API OpenAI avec les paramètres corrects pour GPT-4.1+
+    // Appeler l'API OpenAI avec gpt-4o-mini (modèle moins cher, temporaire)
     const openAIResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -126,13 +126,13 @@ Rédigez le courrier complet en tenant compte de tous ces éléments.`;
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4.1-2025-04-14',
+        model: 'gpt-4o-mini',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
-        max_completion_tokens: 1500  // Paramètre correct pour GPT-4.1+
-        // Note: temperature n'est pas supporté par GPT-4.1+
+        max_tokens: 1500,
+        temperature: 0.3
       }),
     });
 
