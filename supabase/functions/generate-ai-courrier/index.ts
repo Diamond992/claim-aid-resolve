@@ -109,50 +109,55 @@ ${context.adresseAssureur ? `- Adresse assureur: ${JSON.stringify(context.adress
 
 Rédigez le courrier complet en tenant compte de tous ces éléments.`;
 
-    // Vérifier la clé Mistral
-    const mistralApiKey = Deno.env.get('MISTRAL_API_KEY');
-    if (!mistralApiKey) {
-      console.error('MISTRAL_API_KEY is not configured');
-      throw new Error('Configuration manquante: clé Mistral non configurée');
+    // Vérifier la clé Gemini
+    const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
+    if (!geminiApiKey) {
+      console.error('GEMINI_API_KEY is not configured');
+      throw new Error('Configuration manquante: clé Gemini non configurée');
     }
 
-    console.log('Calling Mistral API with model: mistral-small-latest');
+    console.log('Calling Google Gemini API with model: gemini-1.5-flash');
 
-    // Appeler l'API Mistral
-    const mistralResponse = await fetch('https://api.mistral.ai/v1/chat/completions', {
+    // Appeler l'API Google Gemini
+    const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${mistralApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'mistral-small-latest',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
+        contents: [
+          {
+            role: "user",
+            parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }]
+          }
         ],
-        max_tokens: 1500,
-        temperature: 0.7
+        generationConfig: {
+          maxOutputTokens: 1500,
+          temperature: 0.7
+        }
       }),
     });
 
-    console.log('Mistral API response status:', mistralResponse.status);
+    console.log('Gemini API response status:', geminiResponse.status);
 
-    if (!mistralResponse.ok) {
-      const errorText = await mistralResponse.text();
-      console.error('Mistral API error details:', errorText);
+    if (!geminiResponse.ok) {
+      const errorText = await geminiResponse.text();
+      console.error('Gemini API error details:', errorText);
       
-      if (mistralResponse.status === 429) {
-        throw new Error('Limite de taux Mistral atteinte. Veuillez réessayer dans quelques minutes.');
-      } else if (mistralResponse.status === 401) {
-        throw new Error('Clé API Mistral invalide ou manquante.');
+      if (geminiResponse.status === 429) {
+        throw new Error('Limite de taux Gemini atteinte. Veuillez réessayer dans quelques minutes.');
+      } else if (geminiResponse.status === 401) {
+        throw new Error('Clé API Gemini invalide ou manquante.');
       } else {
-        throw new Error(`Erreur Mistral API (${mistralResponse.status}): ${errorText}`);
+        throw new Error(`Erreur Gemini API (${geminiResponse.status}): ${errorText}`);
       }
     }
 
-    const mistralData = await mistralResponse.json();
-    const generatedContent = mistralData.choices[0].message.content;
+    const geminiData = await geminiResponse.json();
+    console.log('Gemini API response:', JSON.stringify(geminiData, null, 2));
+    
+    // Extraire le contenu généré de la réponse Gemini
+    const generatedContent = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
 
     return new Response(JSON.stringify({ 
       success: true,
