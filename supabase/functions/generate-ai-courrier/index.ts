@@ -116,7 +116,7 @@ Rédigez le courrier complet en tenant compte de tous ces éléments.`;
       throw new Error('Configuration manquante: clé Mistral non configurée');
     }
 
-    console.log('Calling Mistral API with model: open-mistral-7b');
+    console.log('Calling Mistral API with model: mistral-small-latest');
 
     // Appeler l'API Mistral
     const mistralResponse = await fetch('https://api.mistral.ai/v1/chat/completions', {
@@ -126,13 +126,13 @@ Rédigez le courrier complet en tenant compte de tous ces éléments.`;
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'open-mistral-7b',
+        model: 'mistral-small-latest',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
         max_tokens: 1500,
-        temperature: 0.3
+        temperature: 0.7
       }),
     });
 
