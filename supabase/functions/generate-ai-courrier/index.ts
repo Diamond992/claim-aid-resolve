@@ -109,24 +109,24 @@ ${context.adresseAssureur ? `- Adresse assureur: ${JSON.stringify(context.adress
 
 Rédigez le courrier complet en tenant compte de tous ces éléments.`;
 
-    // Vérifier la clé OpenAI
-    const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
-    if (!openAIApiKey) {
-      console.error('OPENAI_API_KEY is not configured');
-      throw new Error('Configuration manquante: clé OpenAI non configurée');
+    // Vérifier la clé Mistral
+    const mistralApiKey = Deno.env.get('MISTRAL_API_KEY');
+    if (!mistralApiKey) {
+      console.error('MISTRAL_API_KEY is not configured');
+      throw new Error('Configuration manquante: clé Mistral non configurée');
     }
 
-    console.log('Calling OpenAI API with model: gpt-4o-mini (temporary fallback)');
+    console.log('Calling Mistral API with model: mistral-large-latest');
 
-    // Appeler l'API OpenAI avec gpt-4o-mini (modèle moins cher, temporaire)
-    const openAIResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+    // Appeler l'API Mistral
+    const mistralResponse = await fetch('https://api.mistral.ai/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
+        'Authorization': `Bearer ${mistralApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'mistral-large-latest',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
@@ -136,23 +136,23 @@ Rédigez le courrier complet en tenant compte de tous ces éléments.`;
       }),
     });
 
-    console.log('OpenAI API response status:', openAIResponse.status);
+    console.log('Mistral API response status:', mistralResponse.status);
 
-    if (!openAIResponse.ok) {
-      const errorText = await openAIResponse.text();
-      console.error('OpenAI API error details:', errorText);
+    if (!mistralResponse.ok) {
+      const errorText = await mistralResponse.text();
+      console.error('Mistral API error details:', errorText);
       
-      if (openAIResponse.status === 429) {
-        throw new Error('Limite de taux OpenAI atteinte. Veuillez réessayer dans quelques minutes.');
-      } else if (openAIResponse.status === 401) {
-        throw new Error('Clé API OpenAI invalide ou manquante.');
+      if (mistralResponse.status === 429) {
+        throw new Error('Limite de taux Mistral atteinte. Veuillez réessayer dans quelques minutes.');
+      } else if (mistralResponse.status === 401) {
+        throw new Error('Clé API Mistral invalide ou manquante.');
       } else {
-        throw new Error(`Erreur OpenAI API (${openAIResponse.status}): ${errorText}`);
+        throw new Error(`Erreur Mistral API (${mistralResponse.status}): ${errorText}`);
       }
     }
 
-    const openAIData = await openAIResponse.json();
-    const generatedContent = openAIData.choices[0].message.content;
+    const mistralData = await mistralResponse.json();
+    const generatedContent = mistralData.choices[0].message.content;
 
     return new Response(JSON.stringify({ 
       success: true,
