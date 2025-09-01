@@ -109,55 +109,53 @@ ${context.adresseAssureur ? `- Adresse assureur: ${JSON.stringify(context.adress
 
 Rédigez le courrier complet en tenant compte de tous ces éléments.`;
 
-    // Vérifier la clé Gemini
-    const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
-    if (!geminiApiKey) {
-      console.error('GEMINI_API_KEY is not configured');
-      throw new Error('Configuration manquante: clé Gemini non configurée');
+    // Vérifier la clé Groq
+    const groqApiKey = Deno.env.get('GROQ_API_KEY');
+    if (!groqApiKey) {
+      console.error('GROQ_API_KEY is not configured');
+      throw new Error('Configuration manquante: clé Groq non configurée');
     }
 
-    console.log('Calling Google Gemini API with model: gemini-1.5-flash');
+    console.log('Calling Groq API with model: meta-llama/llama-4-scout-17b-16e-instruct');
 
-    // Appeler l'API Google Gemini
-    const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`, {
+    // Appeler l'API Groq
+    const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
+        'Authorization': `Bearer ${groqApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        contents: [
-          {
-            role: "user",
-            parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }]
-          }
+        model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
         ],
-        generationConfig: {
-          maxOutputTokens: 1500,
-          temperature: 0.7
-        }
+        max_tokens: 1500,
+        temperature: 0.7
       }),
     });
 
-    console.log('Gemini API response status:', geminiResponse.status);
+    console.log('Groq API response status:', groqResponse.status);
 
-    if (!geminiResponse.ok) {
-      const errorText = await geminiResponse.text();
-      console.error('Gemini API error details:', errorText);
+    if (!groqResponse.ok) {
+      const errorText = await groqResponse.text();
+      console.error('Groq API error details:', errorText);
       
-      if (geminiResponse.status === 429) {
-        throw new Error('Limite de taux Gemini atteinte. Veuillez réessayer dans quelques minutes.');
-      } else if (geminiResponse.status === 401) {
-        throw new Error('Clé API Gemini invalide ou manquante.');
+      if (groqResponse.status === 429) {
+        throw new Error('Limite de taux Groq atteinte. Veuillez réessayer dans quelques minutes.');
+      } else if (groqResponse.status === 401) {
+        throw new Error('Clé API Groq invalide ou manquante.');
       } else {
-        throw new Error(`Erreur Gemini API (${geminiResponse.status}): ${errorText}`);
+        throw new Error(`Erreur Groq API (${groqResponse.status}): ${errorText}`);
       }
     }
 
-    const geminiData = await geminiResponse.json();
-    console.log('Gemini API response:', JSON.stringify(geminiData, null, 2));
+    const groqData = await groqResponse.json();
+    console.log('Groq API response:', JSON.stringify(groqData, null, 2));
     
-    // Extraire le contenu généré de la réponse Gemini
-    const generatedContent = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
+    // Extraire le contenu généré de la réponse Groq (format OpenAI)
+    const generatedContent = groqData.choices?.[0]?.message?.content;
 
     return new Response(JSON.stringify({ 
       success: true,
