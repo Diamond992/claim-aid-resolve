@@ -17,11 +17,22 @@ serve(async (req) => {
     
     console.log('Generate AI courrier request:', { dossierId, typeCourrier, tone, length });
     
+    // Vérifier l'en-tête d'autorisation
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      console.error('Missing Authorization header');
+      throw new Error('En-tête d\'autorisation manquant');
+    }
+    
+    console.log('Authorization header present:', !!authHeader);
+    
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
+      { global: { headers: { Authorization: authHeader } } }
     );
+
+    console.log('Fetching dossier data for ID:', dossierId);
 
     // Récupérer les données du dossier et documents
     const { data: dossierData, error: dossierError } = await supabaseClient
@@ -40,14 +51,36 @@ serve(async (req) => {
         )
       `)
       .eq('id', dossierId)
-      .single();
+      .maybeSingle();
 
-    if (dossierError) throw dossierError;
+    console.log('Dossier query result:', { data: !!dossierData, error: dossierError });
+
+    if (dossierError) {
+      console.error('Dossier fetch error:', dossierError);
+      throw dossierError;
+    }
+
+    if (!dossierData) {
+      console.error('Dossier not found for ID:', dossierId);
+      throw new Error(`Dossier non trouvé pour l'ID: ${dossierId}`);
+    }
+
+    // Vérifier que les données du profil existent
+    if (!dossierData.profiles) {
+      console.error('Profile data missing for dossier:', dossierId);
+      throw new Error('Données du profil client manquantes');
+    }
+
+    console.log('Profile data found:', { 
+      firstName: !!dossierData.profiles.first_name, 
+      lastName: !!dossierData.profiles.last_name,
+      email: !!dossierData.profiles.email 
+    });
 
     // Préparer le contexte pour l'IA
     const context = {
-      client: `${dossierData.profiles.first_name} ${dossierData.profiles.last_name}`,
-      email: dossierData.profiles.email,
+      client: `${dossierData.profiles.first_name || 'N/A'} ${dossierData.profiles.last_name || 'N/A'}`,
+      email: dossierData.profiles.email || 'N/A',
       typeSinistre: dossierData.type_sinistre,
       dateSinistre: dossierData.date_sinistre,
       montantRefuse: dossierData.montant_refuse,
