@@ -149,7 +149,7 @@ Rédigez le courrier complet en tenant compte de tous ces éléments.`;
       throw new Error('Configuration manquante: clé Groq non configurée');
     }
 
-    console.log('Calling Groq API with model: meta-llama/llama-4-scout-17b-16e-instruct');
+    console.log('Calling Groq API with model: llama3-8b-8192');
 
     // Appeler l'API Groq
     const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -159,13 +159,12 @@ Rédigez le courrier complet en tenant compte de tous ces éléments.`;
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+        model: 'llama3-8b-8192',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
-        max_tokens: 1500,
-        temperature: 0.7
+        max_completion_tokens: 1024
       }),
     });
 
