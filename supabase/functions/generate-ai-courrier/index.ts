@@ -122,15 +122,28 @@ Documents: ${context.documents.map(d => d.nom).join(', ') || 'Aucun'}
 
 Rédigez le courrier complet.`;
 
-    // === CONFIG AI UNIVERSELLE ===
+    // === DIAGNOSTIC VARIABLES D'ENVIRONNEMENT ===
+    console.log('🔍 Variables d\'environnement disponibles:', Object.keys(Deno.env.toObject()));
+    console.log('🔍 Variables Supabase:', {
+      'SUPABASE_URL': !!Deno.env.get('SUPABASE_URL'),
+      'SUPABASE_ANON_KEY': !!Deno.env.get('SUPABASE_ANON_KEY'),
+      'SUPABASE_SERVICE_ROLE_KEY': !!Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    });
+    
+    // === CONFIG AI AVEC MISTRAL EN PRIORITÉ ===
+    const mistralApiKey = Deno.env.get('MISTRAL_API_KEY');
     const groqApiKey = Deno.env.get('GROQ_API_KEY');
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
     
-    console.log(`🔧 Configuration: Groq=${!!groqApiKey}, OpenAI=${!!openaiApiKey}`);
+    console.log(`🔧 Configuration IA:`, {
+      'Mistral': !!mistralApiKey,
+      'Groq': !!groqApiKey,
+      'OpenAI': !!openaiApiKey
+    });
     
-    if (!groqApiKey && !openaiApiKey) {
+    if (!mistralApiKey && !groqApiKey && !openaiApiKey) {
       console.error('❌ Aucune clé IA configurée');
-      throw new Error('Configuration manquante: aucune clé IA (Groq ou OpenAI) configurée');
+      throw new Error('Configuration manquante: aucune clé IA configurée');
     }
 
     // Initialiser les clients IA
@@ -150,14 +163,50 @@ Rédigez le courrier complet.`;
       "llama3-70b-8192",       // Plus lourd, en dernier recours
     ];
 
-    // === FONCTION DE TEST AVEC RETRY INTELLIGENT ===
+    // === FONCTION DE TEST AVEC MISTRAL EN PRIORITÉ ===
     async function testAIModels() {
       const messages = [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
       ];
 
-      // Tester les modèles Groq si disponible
+      // === PRIORITÉ 1: MISTRAL AI (API gratuite généreuse) ===
+      if (mistralApiKey) {
+        try {
+          console.log('🚀 Test Mistral AI...');
+          
+          const mistralResponse = await fetch('https://api.mistral.ai/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${mistralApiKey}`,
+            },
+            body: JSON.stringify({
+              model: 'mistral-tiny', // Modèle gratuit le plus stable
+              messages,
+              max_tokens: length === 'court' ? 512 : length === 'long' ? 1024 : 768,
+            }),
+          });
+
+          if (!mistralResponse.ok) {
+            const errorData = await mistralResponse.text();
+            console.error(`❌ Mistral API error ${mistralResponse.status}:`, errorData);
+            throw new Error(`Mistral API error: ${mistralResponse.status}`);
+          }
+
+          const mistralData = await mistralResponse.json();
+          const generatedContent = mistralData.choices[0].message.content;
+          
+          if (generatedContent && generatedContent.trim()) {
+            console.log('✅ Succès avec Mistral AI');
+            return generatedContent;
+          }
+        } catch (mistralError) {
+          console.error('💥 Erreur Mistral:', mistralError.message);
+        }
+      }
+
+      // === PRIORITÉ 2: GROQ ===
       if (groq) {
         for (let modelIndex = 0; modelIndex < groqModels.length; modelIndex++) {
           const model = groqModels[modelIndex];
@@ -195,7 +244,7 @@ Rédigez le courrier complet.`;
         }
       }
 
-      // === Fallback OpenAI avec retry ===
+      // === PRIORITÉ 3: OPENAI (FALLBACK) ===
       if (openai) {
         for (let attempt = 1; attempt <= 2; attempt++) {
           try {
@@ -224,6 +273,18 @@ Rédigez le courrier complet.`;
       }
 
       throw new Error("Aucun service IA disponible. Vérifiez vos quotas API ou souscrivez un plan payant.");
+    }
+
+    // === TEST DE CONNECTIVITÉ RÉSEAU ===
+    try {
+      console.log('🌐 Test de connectivité réseau...');
+      const testResponse = await fetch('https://httpbin.org/get', { 
+        method: 'GET',
+        signal: AbortSignal.timeout(5000)
+      });
+      console.log('✅ Connectivité réseau OK:', testResponse.status);
+    } catch (networkError) {
+      console.error('⚠️ Problème de connectivité:', networkError.message);
     }
 
     // Générer le contenu avec le système de fallback automatique
