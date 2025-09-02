@@ -149,37 +149,83 @@ Rédigez le courrier complet en tenant compte de tous ces éléments.`;
       throw new Error('Configuration manquante: clé Groq non configurée');
     }
 
-    console.log('Calling Groq API with model: llama3-8b-8192');
+    // Modèles à essayer par ordre de préférence (fallback automatique)
+    const modelsToTry = [
+      'llama3-70b-8192',      // Plus stable en production
+      'mixtral-8x7b-32768',   // Alternative de repli
+      'llama3-8b-8192'        // Modèle original en dernier recours
+    ];
 
-    // Appeler l'API Groq
-    const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${groqApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'llama3-8b-8192',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
-        max_completion_tokens: 1024
-      }),
-    });
+    let groqResponse;
+    let lastError;
 
-    console.log('Groq API response status:', groqResponse.status);
+    // Essayer les modèles successivement
+    for (const model of modelsToTry) {
+      try {
+        console.log(`Calling Groq API with model: ${model}`);
+        
+        groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${groqApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: model,
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userPrompt }
+            ],
+            max_completion_tokens: 1024
+          }),
+        });
 
-    if (!groqResponse.ok) {
-      const errorText = await groqResponse.text();
-      console.error('Groq API error details:', errorText);
-      
-      if (groqResponse.status === 429) {
-        throw new Error('Limite de taux Groq atteinte. Veuillez réessayer dans quelques minutes.');
-      } else if (groqResponse.status === 401) {
-        throw new Error('Clé API Groq invalide ou manquante.');
-      } else {
-        throw new Error(`Erreur Groq API (${groqResponse.status}): ${errorText}`);
+        console.log(`Groq API response status for ${model}:`, groqResponse.status);
+
+        if (groqResponse.ok) {
+          console.log(`Success with model: ${model}`);
+          break; // Succès, on sort de la boucle
+        } else {
+          const errorText = await groqResponse.text();
+          console.error(`Error with model ${model}:`, errorText);
+          console.error(`Response headers:`, Object.fromEntries(groqResponse.headers.entries()));
+          
+          lastError = {
+            status: groqResponse.status,
+            model: model,
+            error: errorText
+          };
+
+          // Pour les erreurs d'authentification, pas la peine d'essayer d'autres modèles
+          if (groqResponse.status === 401) {
+            throw new Error('Clé API Groq invalide ou manquante.');
+          }
+          
+          // Si c'est le dernier modèle et qu'il a échoué, on lance l'erreur
+          if (model === modelsToTry[modelsToTry.length - 1]) {
+            if (groqResponse.status === 429) {
+              throw new Error('Limite de taux Groq atteinte. Veuillez réessayer dans quelques minutes.');
+            } else if (groqResponse.status === 500) {
+              throw new Error(`Erreur serveur Groq (500). Tous les modèles testés ont échoué. Dernier essai avec ${model}: ${errorText}`);
+            } else {
+              throw new Error(`Erreur Groq API (${groqResponse.status}) avec ${model}: ${errorText}`);
+            }
+          } else {
+            console.log(`Trying next model due to error ${groqResponse.status} with ${model}`);
+          }
+        }
+      } catch (fetchError) {
+        console.error(`Network error with model ${model}:`, fetchError);
+        lastError = {
+          status: 'network',
+          model: model,
+          error: fetchError.message
+        };
+        
+        // Si c'est le dernier modèle, on lance l'erreur
+        if (model === modelsToTry[modelsToTry.length - 1]) {
+          throw new Error(`Erreur réseau Groq après avoir testé tous les modèles: ${fetchError.message}`);
+        }
       }
     }
 
