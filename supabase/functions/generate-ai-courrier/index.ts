@@ -103,45 +103,24 @@ serve(async (req) => {
       'mise_en_demeure': 'Rédiger une mise en demeure juridique formelle et précise'
     };
 
-    // Construire le prompt pour l'IA
-    const systemPrompt = `Vous êtes un expert juridique spécialisé dans les assurances. Votre mission est de rédiger des courriers professionnels pour contester des refus d'assurance.
+    // Prompts optimisés pour API gratuites (plus courts)
+    const systemPrompt = `Expert juridique assurances. Rédigez ${courrierObjectives[typeCourrier]}.
 
-OBJECTIF: ${courrierObjectives[typeCourrier] || 'Rédiger un courrier professionnel'}
+Ton: ${tone === 'ferme' ? 'Ferme, assertif' : 'Diplomatique'}
+Longueur: ${length === 'court' ? '300-400 mots' : length === 'long' ? '600-800 mots' : '400-600 mots'}
 
-PARAMÈTRES:
-- Ton: ${tone === 'ferme' ? 'Ferme mais respectueux, assertif' : 'Diplomatique et courtois'}
-- Longueur: ${length === 'court' ? 'Concis (300-500 mots)' : length === 'long' ? 'Détaillé (800-1200 mots)' : 'Moyen (500-800 mots)'}
+Structure: En-tête, Objet, Références, Contexte, Arguments juridiques, Demande, Politesse.
+Style: Français juridique précis, factuel, structuré.`;
 
-STRUCTURE REQUISE:
-1. En-tête avec coordonnées
-2. Objet clair
-3. Références du dossier
-4. Contexte factuel
-5. Arguments juridiques pertinents
-6. Demande précise
-7. Formule de politesse
+    const userPrompt = `Dossier:
+Client: ${context.client} (${context.email})
+Sinistre: ${context.typeSinistre} du ${context.dateSinistre}
+Montant: ${context.montantRefuse}€, refusé le ${context.refusDate}
+Police: ${context.policeNumber}, Assureur: ${context.compagnieAssurance}
+Motif refus: ${context.motifRefus || 'Non spécifié'}
+Documents: ${context.documents.map(d => d.nom).join(', ') || 'Aucun'}
 
-RÈGLES:
-- Utilisez un français juridique précis
-- Citez les articles de loi pertinents quand approprié
-- Restez factuel et argumenté
-- Évitez l'émotionnel
-- Structurez clairement vos arguments`;
-
-    const userPrompt = `Contexte du dossier:
-- Client: ${context.client}
-- Email: ${context.email}
-- Type de sinistre: ${context.typeSinistre}
-- Date du sinistre: ${context.dateSinistre}
-- Montant refusé: ${context.montantRefuse} €
-- Date de refus: ${context.refusDate}
-- Numéro de police: ${context.policeNumber}
-- Compagnie d'assurance: ${context.compagnieAssurance}
-- Motif de refus: ${context.motifRefus || 'Non spécifié'}
-- Documents fournis: ${context.documents.map(d => d.nom).join(', ') || 'Aucun'}
-${context.adresseAssureur ? `- Adresse assureur: ${JSON.stringify(context.adresseAssureur)}` : ''}
-
-Rédigez le courrier complet en tenant compte de tous ces éléments.`;
+Rédigez le courrier complet.`;
 
     // === CONFIG AI UNIVERSELLE ===
     const groqApiKey = Deno.env.get('GROQ_API_KEY');
@@ -164,15 +143,14 @@ Rédigez le courrier complet en tenant compte de tous ces éléments.`;
       apiKey: openaiApiKey,
     }) : null;
 
-    // Liste des modèles à tester en cascade
+    // Modèles optimisés pour API gratuites (ordre de priorité)
     const groqModels = [
-      "llama3-70b-8192",                     // Plus stable en production
-      "mixtral-8x7b-32768",                  // Très bon pour long contexte
-      "llama3-8b-8192",                      // Rapide mais parfois instable
-      "llama3-groq-8b-8192-tool-use-preview" // Pour structured outputs
+      "llama3-8b-8192",        // Plus rapide, moins de ressources
+      "mixtral-8x7b-32768",    // Bon compromis qualité/vitesse
+      "llama3-70b-8192",       // Plus lourd, en dernier recours
     ];
 
-    // === FONCTION DE TEST UNIVERSELLE ===
+    // === FONCTION DE TEST AVEC RETRY INTELLIGENT ===
     async function testAIModels() {
       const messages = [
         { role: 'system', content: systemPrompt },
@@ -181,45 +159,71 @@ Rédigez le courrier complet en tenant compte de tous ces éléments.`;
 
       // Tester les modèles Groq si disponible
       if (groq) {
-        for (const model of groqModels) {
-          try {
-            console.log(`🔎 Test du modèle Groq: ${model}`);
+        for (let modelIndex = 0; modelIndex < groqModels.length; modelIndex++) {
+          const model = groqModels[modelIndex];
+          
+          // Retry avec délais croissants pour API gratuite
+          for (let attempt = 1; attempt <= 3; attempt++) {
+            try {
+              console.log(`🔎 Test Groq ${model} (tentative ${attempt}/3)`);
 
-            const response = await groq.chat.completions.create({
-              model,
-              messages,
-              max_completion_tokens: 1024,
-            });
+              const response = await groq.chat.completions.create({
+                model,
+                messages,
+                max_completion_tokens: length === 'court' ? 512 : length === 'long' ? 1024 : 768,
+                temperature: 0.7,
+              });
 
-            console.log(`✅ Succès avec Groq ${model}`);
-            return response.choices[0].message.content;
+              console.log(`✅ Succès avec Groq ${model} après ${attempt} tentative(s)`);
+              return response.choices[0].message.content;
 
-          } catch (err) {
-            console.error(`❌ Erreur avec Groq ${model}:`, err.response?.data || err.message);
-            // Continue sur le modèle suivant
+            } catch (err) {
+              const errorMsg = err.response?.data?.error?.message || err.message;
+              console.error(`❌ Groq ${model} tentative ${attempt}:`, errorMsg);
+              
+              // Si rate limit ou quota, attendre plus longtemps
+              if (errorMsg.includes('rate_limit') || errorMsg.includes('quota')) {
+                const delay = attempt * 2000; // 2s, 4s, 6s
+                console.log(`⏳ Rate limit détecté, attente ${delay}ms...`);
+                await new Promise(resolve => setTimeout(resolve, delay));
+              } else if (attempt === 3) {
+                // Dernière tentative échouée, passer au modèle suivant
+                break;
+              }
+            }
           }
         }
       }
 
-      // === Fallback OpenAI si tous les modèles Groq échouent ===
+      // === Fallback OpenAI avec retry ===
       if (openai) {
-        try {
-          console.log("⚠️ Tous les modèles Groq ont échoué. Test fallback OpenAI...");
-          const openaiResp = await openai.chat.completions.create({
-            model: "gpt-4o-mini",
-            messages,
-            max_completion_tokens: 1024,
-          });
-          console.log("✅ Succès avec OpenAI (fallback)");
-          return openaiResp.choices[0].message.content;
+        for (let attempt = 1; attempt <= 2; attempt++) {
+          try {
+            console.log(`⚠️ Fallback OpenAI (tentative ${attempt}/2)...`);
+            const openaiResp = await openai.chat.completions.create({
+              model: "gpt-4o-mini",
+              messages,
+              max_tokens: length === 'court' ? 512 : length === 'long' ? 1024 : 768,
+              temperature: 0.7,
+            });
+            console.log("✅ Succès avec OpenAI (fallback)");
+            return openaiResp.choices[0].message.content;
 
-        } catch (openaiErr) {
-          console.error("💥 Échec OpenAI :", openaiErr.response?.data || openaiErr.message);
-          throw new Error(`Impossible d'obtenir une réponse: Groq et OpenAI ont échoué. Dernière erreur OpenAI: ${openaiErr.message}`);
+          } catch (openaiErr) {
+            const errorMsg = openaiErr.response?.data?.error?.message || openaiErr.message;
+            console.error(`💥 OpenAI tentative ${attempt}:`, errorMsg);
+            
+            if (attempt === 1 && (errorMsg.includes('rate_limit') || errorMsg.includes('quota'))) {
+              console.log("⏳ Attente 3s avant retry OpenAI...");
+              await new Promise(resolve => setTimeout(resolve, 3000));
+            } else if (attempt === 2) {
+              throw new Error(`Échec final: ${errorMsg}`);
+            }
+          }
         }
       }
 
-      throw new Error("Impossible d'obtenir une réponse: aucun modèle IA disponible ou fonctionnel.");
+      throw new Error("Aucun service IA disponible. Vérifiez vos quotas API ou souscrivez un plan payant.");
     }
 
     // Générer le contenu avec le système de fallback automatique
