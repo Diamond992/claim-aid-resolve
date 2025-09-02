@@ -122,27 +122,49 @@ Documents: ${context.documents.map(d => d.nom).join(', ') || 'Aucun'}
 
 Rédigez le courrier complet.`;
 
-    // === DIAGNOSTIC VARIABLES D'ENVIRONNEMENT ===
-    console.log('🔍 Variables d\'environnement disponibles:', Object.keys(Deno.env.toObject()));
-    console.log('🔍 Variables Supabase:', {
+    // === DIAGNOSTIC DÉTAILLÉ VARIABLES D'ENVIRONNEMENT ===
+    const allEnvVars = Deno.env.toObject();
+    console.log('🔍 DIAGNOSTIC: Variables d\'environnement disponibles:', Object.keys(allEnvVars));
+    console.log('🔍 DIAGNOSTIC: Variables Supabase:', {
       'SUPABASE_URL': !!Deno.env.get('SUPABASE_URL'),
       'SUPABASE_ANON_KEY': !!Deno.env.get('SUPABASE_ANON_KEY'),
       'SUPABASE_SERVICE_ROLE_KEY': !!Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
     });
     
-    // === CONFIG AI AVEC MISTRAL EN PRIORITÉ ===
+    // === DIAGNOSTIC SECRETS IA ===
     const mistralApiKey = Deno.env.get('MISTRAL_API_KEY');
     const groqApiKey = Deno.env.get('GROQ_API_KEY');
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
     
+    console.log('🔍 DIAGNOSTIC: Clés IA détectées:', {
+      'MISTRAL_API_KEY': mistralApiKey ? `${mistralApiKey.substring(0, 8)}...` : 'MANQUANT',
+      'GROQ_API_KEY': groqApiKey ? `${groqApiKey.substring(0, 8)}...` : 'MANQUANT',
+      'OPENAI_API_KEY': openaiApiKey ? `${openaiApiKey.substring(0, 8)}...` : 'MANQUANT'
+    });
+    
     console.log(`🔧 Configuration IA:`, {
       'Mistral': !!mistralApiKey,
-      'Groq': !!groqApiKey,
+      'Groq': !!groqApiKey,  
       'OpenAI': !!openaiApiKey
     });
     
+    // Vérification avec message d'erreur détaillé
     if (!mistralApiKey && !groqApiKey && !openaiApiKey) {
-      console.error('❌ Aucune clé IA configurée');
+      const errorMessage = `❌ AUCUNE CLÉ IA CONFIGURÉE
+      
+Clés recherchées:
+- MISTRAL_API_KEY: ${mistralApiKey ? 'TROUVÉ' : 'MANQUANT'}
+- GROQ_API_KEY: ${groqApiKey ? 'TROUVÉ' : 'MANQUANT'} 
+- OPENAI_API_KEY: ${openaiApiKey ? 'TROUVÉ' : 'MANQUANT'}
+
+Variables disponibles: ${Object.keys(allEnvVars).join(', ')}
+
+SOLUTION:
+1. Vérifier que les secrets sont définis dans Supabase
+2. Redéployer la fonction: supabase functions deploy generate-ai-courrier
+3. Vérifier les logs: supabase functions logs generate-ai-courrier`;
+      
+      console.error(errorMessage);
       throw new Error('Configuration manquante: aucune clé IA configurée');
     }
 
