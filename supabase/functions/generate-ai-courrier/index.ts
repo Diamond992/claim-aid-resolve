@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.50.2";
+import OpenAI from "https://deno.land/x/openai@v4.24.0/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -142,98 +143,87 @@ ${context.adresseAssureur ? `- Adresse assureur: ${JSON.stringify(context.adress
 
 Rédigez le courrier complet en tenant compte de tous ces éléments.`;
 
-    // Vérifier la clé Groq
+    // === CONFIG AI UNIVERSELLE ===
     const groqApiKey = Deno.env.get('GROQ_API_KEY');
-    if (!groqApiKey) {
-      console.error('GROQ_API_KEY is not configured');
-      throw new Error('Configuration manquante: clé Groq non configurée');
+    const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
+    
+    console.log(`🔧 Configuration: Groq=${!!groqApiKey}, OpenAI=${!!openaiApiKey}`);
+    
+    if (!groqApiKey && !openaiApiKey) {
+      console.error('❌ Aucune clé IA configurée');
+      throw new Error('Configuration manquante: aucune clé IA (Groq ou OpenAI) configurée');
     }
 
-    // Modèles à essayer par ordre de préférence (fallback automatique)
-    const modelsToTry = [
-      'llama3-70b-8192',      // Plus stable en production
-      'mixtral-8x7b-32768',   // Alternative de repli
-      'llama3-8b-8192'        // Modèle original en dernier recours
+    // Initialiser les clients IA
+    const groq = groqApiKey ? new OpenAI({
+      apiKey: groqApiKey,
+      baseURL: "https://api.groq.com/openai/v1",
+    }) : null;
+
+    const openai = openaiApiKey ? new OpenAI({
+      apiKey: openaiApiKey,
+    }) : null;
+
+    // Liste des modèles à tester en cascade
+    const groqModels = [
+      "llama3-70b-8192",                     // Plus stable en production
+      "mixtral-8x7b-32768",                  // Très bon pour long contexte
+      "llama3-8b-8192",                      // Rapide mais parfois instable
+      "llama3-groq-8b-8192-tool-use-preview" // Pour structured outputs
     ];
 
-    let groqResponse;
-    let lastError;
+    // === FONCTION DE TEST UNIVERSELLE ===
+    async function testAIModels() {
+      const messages = [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ];
 
-    // Essayer les modèles successivement
-    for (const model of modelsToTry) {
-      try {
-        console.log(`Calling Groq API with model: ${model}`);
-        
-        groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${groqApiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: model,
-            messages: [
-              { role: 'system', content: systemPrompt },
-              { role: 'user', content: userPrompt }
-            ],
-            max_completion_tokens: 1024
-          }),
-        });
+      // Tester les modèles Groq si disponible
+      if (groq) {
+        for (const model of groqModels) {
+          try {
+            console.log(`🔎 Test du modèle Groq: ${model}`);
 
-        console.log(`Groq API response status for ${model}:`, groqResponse.status);
+            const response = await groq.chat.completions.create({
+              model,
+              messages,
+              max_completion_tokens: 1024,
+            });
 
-        if (groqResponse.ok) {
-          console.log(`Success with model: ${model}`);
-          break; // Succès, on sort de la boucle
-        } else {
-          const errorText = await groqResponse.text();
-          console.error(`Error with model ${model}:`, errorText);
-          console.error(`Response headers:`, Object.fromEntries(groqResponse.headers.entries()));
-          
-          lastError = {
-            status: groqResponse.status,
-            model: model,
-            error: errorText
-          };
+            console.log(`✅ Succès avec Groq ${model}`);
+            return response.choices[0].message.content;
 
-          // Pour les erreurs d'authentification, pas la peine d'essayer d'autres modèles
-          if (groqResponse.status === 401) {
-            throw new Error('Clé API Groq invalide ou manquante.');
+          } catch (err) {
+            console.error(`❌ Erreur avec Groq ${model}:`, err.response?.data || err.message);
+            // Continue sur le modèle suivant
           }
-          
-          // Si c'est le dernier modèle et qu'il a échoué, on lance l'erreur
-          if (model === modelsToTry[modelsToTry.length - 1]) {
-            if (groqResponse.status === 429) {
-              throw new Error('Limite de taux Groq atteinte. Veuillez réessayer dans quelques minutes.');
-            } else if (groqResponse.status === 500) {
-              throw new Error(`Erreur serveur Groq (500). Tous les modèles testés ont échoué. Dernier essai avec ${model}: ${errorText}`);
-            } else {
-              throw new Error(`Erreur Groq API (${groqResponse.status}) avec ${model}: ${errorText}`);
-            }
-          } else {
-            console.log(`Trying next model due to error ${groqResponse.status} with ${model}`);
-          }
-        }
-      } catch (fetchError) {
-        console.error(`Network error with model ${model}:`, fetchError);
-        lastError = {
-          status: 'network',
-          model: model,
-          error: fetchError.message
-        };
-        
-        // Si c'est le dernier modèle, on lance l'erreur
-        if (model === modelsToTry[modelsToTry.length - 1]) {
-          throw new Error(`Erreur réseau Groq après avoir testé tous les modèles: ${fetchError.message}`);
         }
       }
+
+      // === Fallback OpenAI si tous les modèles Groq échouent ===
+      if (openai) {
+        try {
+          console.log("⚠️ Tous les modèles Groq ont échoué. Test fallback OpenAI...");
+          const openaiResp = await openai.chat.completions.create({
+            model: "gpt-4o-mini",
+            messages,
+            max_completion_tokens: 1024,
+          });
+          console.log("✅ Succès avec OpenAI (fallback)");
+          return openaiResp.choices[0].message.content;
+
+        } catch (openaiErr) {
+          console.error("💥 Échec OpenAI :", openaiErr.response?.data || openaiErr.message);
+          throw new Error(`Impossible d'obtenir une réponse: Groq et OpenAI ont échoué. Dernière erreur OpenAI: ${openaiErr.message}`);
+        }
+      }
+
+      throw new Error("Impossible d'obtenir une réponse: aucun modèle IA disponible ou fonctionnel.");
     }
 
-    const groqData = await groqResponse.json();
-    console.log('Groq API response:', JSON.stringify(groqData, null, 2));
-    
-    // Extraire le contenu généré de la réponse Groq (format OpenAI)
-    const generatedContent = groqData.choices?.[0]?.message?.content;
+    // Générer le contenu avec le système de fallback automatique
+    const generatedContent = await testAIModels();
 
     return new Response(JSON.stringify({ 
       success: true,
