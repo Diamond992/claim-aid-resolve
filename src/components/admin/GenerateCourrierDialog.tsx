@@ -63,6 +63,7 @@ export const GenerateCourrierDialog: React.FC<GenerateCourrierDialogProps> = ({
   // AI-specific state
   const [aiTone, setAiTone] = useState<'ferme' | 'diplomatique'>('ferme');
   const [aiLength, setAiLength] = useState<'court' | 'moyen' | 'long'>('moyen');
+  const [preferredModel, setPreferredModel] = useState<'auto' | 'mistral' | 'groq' | 'openai'>('auto');
 
   const { generateCourrier, isGenerating } = useCourrierGenerator();
   const { generateAICourrier, isGenerating: isAIGenerating } = useAICourrierGenerator();

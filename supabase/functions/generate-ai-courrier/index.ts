@@ -14,9 +14,9 @@ serve(async (req) => {
   }
 
   try {
-    const { dossierId, typeCourrier, tone = 'ferme', length = 'moyen' } = await req.json();
+    const { dossierId, typeCourrier, tone = 'ferme', length = 'moyen', preferredModel = 'auto' } = await req.json();
     
-    console.log('Generate AI courrier request:', { dossierId, typeCourrier, tone, length });
+    console.log('Generate AI courrier request:', { dossierId, typeCourrier, tone, length, preferredModel });
     
     // Vérifier l'en-tête d'autorisation
     const authHeader = req.headers.get('Authorization');
@@ -185,110 +185,136 @@ SOLUTION:
       "llama3-70b-8192",       // Plus lourd, en dernier recours
     ];
 
-    // === FONCTION DE TEST AVEC MISTRAL EN PRIORITÉ ===
-    async function testAIModels() {
+    // === FONCTION DE TEST AVEC PRIORITÉ CONFIGURABLE ===
+    async function testAIModels(preferredModel: string = 'auto') {
       const messages = [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
       ];
 
-      // === PRIORITÉ 1: MISTRAL AI (API gratuite généreuse) ===
-      if (mistralApiKey) {
-        try {
-          console.log('🚀 Test Mistral AI...');
-          
-          const mistralResponse = await fetch('https://api.mistral.ai/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${mistralApiKey}`,
-            },
-            body: JSON.stringify({
-              model: 'mistral-tiny', // Modèle gratuit le plus stable
-              messages,
-              max_tokens: length === 'court' ? 512 : length === 'long' ? 1024 : 768,
-            }),
-          });
-
-          if (!mistralResponse.ok) {
-            const errorData = await mistralResponse.text();
-            console.error(`❌ Mistral API error ${mistralResponse.status}:`, errorData);
-            throw new Error(`Mistral API error: ${mistralResponse.status}`);
-          }
-
-          const mistralData = await mistralResponse.json();
-          const generatedContent = mistralData.choices[0].message.content;
-          
-          if (generatedContent && generatedContent.trim()) {
-            console.log('✅ Succès avec Mistral AI');
-            return generatedContent;
-          }
-        } catch (mistralError) {
-          console.error('💥 Erreur Mistral:', mistralError.message);
+      console.log(`🔍 Testing AI models with preferred: ${preferredModel}...`);
+      
+      // Define model order based on preference
+      const getModelOrder = (preferred: string) => {
+        switch (preferred) {
+          case 'mistral':
+            return ['mistral', 'groq', 'openai'];
+          case 'groq':
+            return ['groq', 'mistral', 'openai'];
+          case 'openai':
+            return ['openai', 'groq', 'mistral'];
+          default: // 'auto'
+            return ['mistral', 'groq', 'openai'];
         }
-      }
-
-      // === PRIORITÉ 2: GROQ ===
-      if (groq) {
-        for (let modelIndex = 0; modelIndex < groqModels.length; modelIndex++) {
-          const model = groqModels[modelIndex];
-          
-          // Retry avec délais croissants pour API gratuite
-          for (let attempt = 1; attempt <= 3; attempt++) {
+      };
+      
+      const modelOrder = getModelOrder(preferredModel);
+      console.log(`📋 Model order: ${modelOrder.join(' → ')}`);
+      
+      // Try models in preferred order
+      for (const model of modelOrder) {
+        if (model === 'mistral') {
+          // === TRY MISTRAL AI ===
+          if (mistralApiKey) {
             try {
-              console.log(`🔎 Test Groq ${model} (tentative ${attempt}/3)`);
-
-              const response = await groq.chat.completions.create({
-                model,
-                messages,
-                max_completion_tokens: length === 'court' ? 512 : length === 'long' ? 1024 : 768,
-                temperature: 0.7,
+              console.log('🚀 Test Mistral AI...');
+              
+              const mistralResponse = await fetch('https://api.mistral.ai/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${mistralApiKey}`,
+                },
+                body: JSON.stringify({
+                  model: 'mistral-tiny', // Modèle gratuit le plus stable
+                  messages,
+                  max_tokens: length === 'court' ? 512 : length === 'long' ? 1024 : 768,
+                }),
               });
 
-              console.log(`✅ Succès avec Groq ${model} après ${attempt} tentative(s)`);
-              return response.choices[0].message.content;
+              if (!mistralResponse.ok) {
+                const errorData = await mistralResponse.text();
+                console.error(`❌ Mistral API error ${mistralResponse.status}:`, errorData);
+                throw new Error(`Mistral API error: ${mistralResponse.status}`);
+              }
 
-            } catch (err) {
-              const errorMsg = err.response?.data?.error?.message || err.message;
-              console.error(`❌ Groq ${model} tentative ${attempt}:`, errorMsg);
+              const mistralData = await mistralResponse.json();
+              const generatedContent = mistralData.choices[0].message.content;
               
-              // Si rate limit ou quota, attendre plus longtemps
-              if (errorMsg.includes('rate_limit') || errorMsg.includes('quota')) {
-                const delay = attempt * 2000; // 2s, 4s, 6s
-                console.log(`⏳ Rate limit détecté, attente ${delay}ms...`);
-                await new Promise(resolve => setTimeout(resolve, delay));
-              } else if (attempt === 3) {
-                // Dernière tentative échouée, passer au modèle suivant
-                break;
+              if (generatedContent && generatedContent.trim()) {
+                console.log('✅ Succès avec Mistral AI');
+                return generatedContent;
+              }
+            } catch (mistralError) {
+              console.error('💥 Erreur Mistral:', mistralError.message);
+            }
+          }
+
+        } else if (model === 'groq') {
+          // === TRY GROQ ===
+          if (groq) {
+            for (let modelIndex = 0; modelIndex < groqModels.length; modelIndex++) {
+              const groqModel = groqModels[modelIndex];
+              
+              // Retry avec délais croissants pour API gratuite
+              for (let attempt = 1; attempt <= 3; attempt++) {
+                try {
+                  console.log(`🔎 Test Groq ${groqModel} (tentative ${attempt}/3)`);
+
+                  const response = await groq.chat.completions.create({
+                    model: groqModel,
+                    messages,
+                    max_completion_tokens: length === 'court' ? 512 : length === 'long' ? 1024 : 768,
+                    temperature: 0.7,
+                  });
+
+                  console.log(`✅ Succès avec Groq ${groqModel} après ${attempt} tentative(s)`);
+                  return response.choices[0].message.content;
+
+                } catch (err) {
+                  const errorMsg = err.response?.data?.error?.message || err.message;
+                  console.error(`❌ Groq ${groqModel} tentative ${attempt}:`, errorMsg);
+                  
+                  // Si rate limit ou quota, attendre plus longtemps
+                  if (errorMsg.includes('rate_limit') || errorMsg.includes('quota')) {
+                    const delay = attempt * 2000; // 2s, 4s, 6s
+                    console.log(`⏳ Rate limit détecté, attente ${delay}ms...`);
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                  } else if (attempt === 3) {
+                    // Dernière tentative échouée, passer au modèle suivant
+                    break;
+                  }
+                }
               }
             }
           }
-        }
-      }
 
-      // === PRIORITÉ 3: OPENAI (FALLBACK) ===
-      if (openai) {
-        for (let attempt = 1; attempt <= 2; attempt++) {
-          try {
-            console.log(`⚠️ Fallback OpenAI (tentative ${attempt}/2)...`);
-            const openaiResp = await openai.chat.completions.create({
-              model: "gpt-4o-mini",
-              messages,
-              max_tokens: length === 'court' ? 512 : length === 'long' ? 1024 : 768,
-              temperature: 0.7,
-            });
-            console.log("✅ Succès avec OpenAI (fallback)");
-            return openaiResp.choices[0].message.content;
+        } else if (model === 'openai') {
+          // === TRY OPENAI ===
+          if (openai) {
+            for (let attempt = 1; attempt <= 2; attempt++) {
+              try {
+                console.log(`⚠️ Test OpenAI (tentative ${attempt}/2)...`);
+                const openaiResp = await openai.chat.completions.create({
+                  model: "gpt-4o-mini",
+                  messages,
+                  max_tokens: length === 'court' ? 512 : length === 'long' ? 1024 : 768,
+                  temperature: 0.7,
+                });
+                console.log("✅ Succès avec OpenAI");
+                return openaiResp.choices[0].message.content;
 
-          } catch (openaiErr) {
-            const errorMsg = openaiErr.response?.data?.error?.message || openaiErr.message;
-            console.error(`💥 OpenAI tentative ${attempt}:`, errorMsg);
-            
-            if (attempt === 1 && (errorMsg.includes('rate_limit') || errorMsg.includes('quota'))) {
-              console.log("⏳ Attente 3s avant retry OpenAI...");
-              await new Promise(resolve => setTimeout(resolve, 3000));
-            } else if (attempt === 2) {
-              throw new Error(`Échec final: ${errorMsg}`);
+              } catch (openaiErr) {
+                const errorMsg = openaiErr.response?.data?.error?.message || openaiErr.message;
+                console.error(`💥 OpenAI tentative ${attempt}:`, errorMsg);
+                
+                if (attempt === 1 && (errorMsg.includes('rate_limit') || errorMsg.includes('quota'))) {
+                  console.log("⏳ Attente 3s avant retry OpenAI...");
+                  await new Promise(resolve => setTimeout(resolve, 3000));
+                } else if (attempt === 2) {
+                  throw new Error(`Échec final: ${errorMsg}`);
+                }
+              }
             }
           }
         }
@@ -310,7 +336,7 @@ SOLUTION:
     }
 
     // Générer le contenu avec le système de fallback automatique
-    const generatedContent = await testAIModels();
+    const generatedContent = await testAIModels(preferredModel);
 
     return new Response(JSON.stringify({ 
       success: true,

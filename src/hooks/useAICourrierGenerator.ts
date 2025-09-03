@@ -9,6 +9,7 @@ interface AICourrierParams {
   typeCourrier: 'reclamation_interne' | 'mediation' | 'mise_en_demeure';
   tone?: 'ferme' | 'diplomatique';
   length?: 'court' | 'moyen' | 'long';
+  preferredModel?: 'auto' | 'mistral' | 'groq' | 'openai';
 }
 
 export const useAICourrierGenerator = () => {
@@ -16,7 +17,7 @@ export const useAICourrierGenerator = () => {
   const { isAdmin } = useUserRole();
 
   const generateAICourrierMutation = useMutation({
-    mutationFn: async ({ dossierId, typeCourrier, tone = 'ferme', length = 'moyen' }: AICourrierParams) => {
+    mutationFn: async ({ dossierId, typeCourrier, tone = 'ferme', length = 'moyen', preferredModel = 'auto' }: AICourrierParams) => {
       if (!isAdmin) {
         throw new Error('Accès non autorisé: seuls les administrateurs peuvent générer des courriers');
       }
@@ -26,7 +27,8 @@ export const useAICourrierGenerator = () => {
           dossierId, 
           typeCourrier,
           tone,
-          length
+          length,
+          preferredModel
         }
       });
 
