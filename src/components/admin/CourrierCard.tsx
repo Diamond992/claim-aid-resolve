@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Bot, Eye, CheckCircle, XCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { DeleteDossierDialog } from "@/components/admin/DeleteDossierDialog";
+import { DeleteCourrierDialog } from "./DeleteCourrierDialog";
 
 interface CourierData {
   id: string;
