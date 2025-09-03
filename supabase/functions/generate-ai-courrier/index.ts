@@ -3,7 +3,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.50.2";
 import OpenAI from "https://deno.land/x/openai@v4.24.0/mod.ts";
 
-// Force redeploy timestamp: 2025-01-03T13:10:00Z
+// Force redeploy timestamp: 2025-01-03T13:15:00Z
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -238,6 +238,49 @@ SOLUTION:
       apiKey: openaiApiKey,
     }) : null;
 
+    // === TEMPLATE DE SECOURS ===
+    function generateBasicTemplate(context: any, type: string, tone: string, length: string): string {
+      const templates = {
+        'reclamation_interne': `Madame, Monsieur,
+
+Je vous écris concernant le refus de prise en charge de mon sinistre ${context.typeSinistre} survenu le ${context.dateSinistre}, pour un montant de ${context.montantRefuse}€.
+
+Votre refus du ${context.refusDate} ne me paraît pas justifié au regard de mon contrat d'assurance n°${context.policeNumber}.
+
+${tone === 'ferme' ? 'Je conteste formellement cette décision et' : 'Je souhaiterais que vous reconsidériez cette décision et que vous'} procédiez à un réexamen de mon dossier.
+
+Je reste à votre disposition pour tout complément d'information.
+
+Cordialement,
+${context.client}`,
+
+        'mediation': `Madame, Monsieur le Médiateur,
+
+Je sollicite votre intervention dans le cadre d'un litige avec ${context.compagnieAssurance} concernant un sinistre ${context.typeSinistre}.
+
+Mon assureur a refusé la prise en charge d'un sinistre de ${context.montantRefuse}€ survenu le ${context.dateSinistre}. 
+
+Je considère ce refus injustifié et souhaiterais que vous examiniez ce dossier.
+
+Cordialement,
+${context.client}`,
+
+        'mise_en_demeure': `MISE EN DEMEURE
+
+Madame, Monsieur,
+
+Par la présente, je vous mets en demeure de procéder au règlement de mon sinistre ${context.typeSinistre} d'un montant de ${context.montantRefuse}€.
+
+Votre refus du ${context.refusDate} n'est pas conforme aux obligations contractuelles.
+
+Vous disposez d'un délai de 30 jours pour régulariser la situation, faute de quoi je me verrai contraint d'engager des poursuites.
+
+${context.client}`
+      };
+
+      return templates[type] || templates['reclamation_interne'];
+    }
+
     // === MODÈLES OPTIMISÉS AVEC FALLBACK INTELLIGENT ===
     const modelConfigs = {
       mistral: {
@@ -422,8 +465,6 @@ SOLUTION:
                 continue;
               }
             }
-
-            }
           }
 
         } catch (error) {
@@ -435,49 +476,6 @@ SOLUTION:
       // === FALLBACK DE SECOURS: TEMPLATE BASIQUE ===
       console.log('🚨 Fallback: génération de template basique');
       return generateBasicTemplate(context, typeCourrier, tone, length);
-    }
-
-    // === TEMPLATE DE SECOURS ===
-    function generateBasicTemplate(context: any, type: string, tone: string, length: string): string {
-      const templates = {
-        'reclamation_interne': `Madame, Monsieur,
-
-Je vous écris concernant le refus de prise en charge de mon sinistre ${context.typeSinistre} survenu le ${context.dateSinistre}, pour un montant de ${context.montantRefuse}€.
-
-Votre refus du ${context.refusDate} ne me paraît pas justifié au regard de mon contrat d'assurance n°${context.policeNumber}.
-
-${tone === 'ferme' ? 'Je conteste formellement cette décision et' : 'Je souhaiterais que vous reconsidériez cette décision et que vous'} procédiez à un réexamen de mon dossier.
-
-Je reste à votre disposition pour tout complément d'information.
-
-Cordialement,
-${context.client}`,
-
-        'mediation': `Madame, Monsieur le Médiateur,
-
-Je sollicite votre intervention dans le cadre d'un litige avec ${context.compagnieAssurance} concernant un sinistre ${context.typeSinistre}.
-
-Mon assureur a refusé la prise en charge d'un sinistre de ${context.montantRefuse}€ survenu le ${context.dateSinistre}. 
-
-Je considère ce refus injustifié et souhaiterais que vous examiniez ce dossier.
-
-Cordialement,
-${context.client}`,
-
-        'mise_en_demeure': `MISE EN DEMEURE
-
-Madame, Monsieur,
-
-Par la présente, je vous mets en demeure de procéder au règlement de mon sinistre ${context.typeSinistre} d'un montant de ${context.montantRefuse}€.
-
-Votre refus du ${context.refusDate} n'est pas conforme aux obligations contractuelles.
-
-Vous disposez d'un délai de 30 jours pour régulariser la situation, faute de quoi je me verrai contraint d'engager des poursuites.
-
-${context.client}`
-      };
-
-      return templates[type] || templates['reclamation_interne'];
     }
 
     // Générer le contenu avec le système de fallback intelligent
