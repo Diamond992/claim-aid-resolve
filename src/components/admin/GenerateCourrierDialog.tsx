@@ -63,7 +63,7 @@ export const GenerateCourrierDialog: React.FC<GenerateCourrierDialogProps> = ({
   // AI-specific state
   const [aiTone, setAiTone] = useState<'ferme' | 'diplomatique'>('ferme');
   const [aiLength, setAiLength] = useState<'court' | 'moyen' | 'long'>('moyen');
-  const [preferredModel, setPreferredModel] = useState<'auto' | 'mistral' | 'groq' | 'openai'>('auto');
+  const [preferredModel, setPreferredModel] = useState<'auto' | 'mistral' | 'groq' | 'openai' | 'claude'>('auto');
 
   const { generateCourrier, isGenerating } = useCourrierGenerator();
   const { generateAICourrier, isGenerating: isAIGenerating } = useAICourrierGenerator();
@@ -188,7 +188,8 @@ export const GenerateCourrierDialog: React.FC<GenerateCourrierDialogProps> = ({
         dossierId: dossier.id,
         typeCourrier: typeCourrier as 'reclamation_interne' | 'mediation' | 'mise_en_demeure',
         tone: aiTone,
-        length: aiLength
+        length: aiLength,
+        preferredModel: preferredModel
       });
       
       handleClose();
@@ -209,6 +210,7 @@ export const GenerateCourrierDialog: React.FC<GenerateCourrierDialogProps> = ({
     setGeneratedContent('');
     setAiTone('ferme');
     setAiLength('moyen');
+    setPreferredModel('auto');
     onClose();
   };
 
@@ -490,6 +492,26 @@ export const GenerateCourrierDialog: React.FC<GenerateCourrierDialogProps> = ({
                           <SelectItem value="long">Long (800-1200 mots)</SelectItem>
                         </SelectContent>
                       </Select>
+                    </div>
+
+                    {/* Sélecteur de modèle d'IA */}
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Modèle d'IA préféré</Label>
+                      <Select value={preferredModel} onValueChange={(value) => setPreferredModel(value as 'auto' | 'mistral' | 'groq' | 'openai' | 'claude')}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="auto">🤖 Auto (Choix intelligent)</SelectItem>
+                          <SelectItem value="mistral">🟢 Mistral AI (Rapide)</SelectItem>
+                          <SelectItem value="groq">⚡ Groq (Ultra-rapide)</SelectItem>
+                          <SelectItem value="openai">🧠 OpenAI (Premium)</SelectItem>
+                          <SelectItem value="claude">📝 Claude (Rédaction)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        Le mode "Auto" utilise le meilleur modèle disponible avec fallback automatique
+                      </p>
                     </div>
 
                     {/* Informations du dossier */}

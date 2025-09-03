@@ -9,7 +9,7 @@ interface AICourrierParams {
   typeCourrier: 'reclamation_interne' | 'mediation' | 'mise_en_demeure';
   tone?: 'ferme' | 'diplomatique';
   length?: 'court' | 'moyen' | 'long';
-  preferredModel?: 'auto' | 'mistral' | 'groq' | 'openai';
+  preferredModel?: 'auto' | 'mistral' | 'groq' | 'openai' | 'claude';
 }
 
 export const useAICourrierGenerator = () => {

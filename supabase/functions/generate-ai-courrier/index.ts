@@ -122,53 +122,38 @@ Documents: ${context.documents.map(d => d.nom).join(', ') || 'Aucun'}
 
 Rédigez le courrier complet.`;
 
-    // === DIAGNOSTIC DÉTAILLÉ VARIABLES D'ENVIRONNEMENT ===
-    const allEnvVars = Deno.env.toObject();
-    console.log('🔍 DIAGNOSTIC: Variables d\'environnement disponibles:', Object.keys(allEnvVars));
-    console.log('🔍 DIAGNOSTIC: Variables Supabase:', {
-      'SUPABASE_URL': !!Deno.env.get('SUPABASE_URL'),
-      'SUPABASE_ANON_KEY': !!Deno.env.get('SUPABASE_ANON_KEY'),
-      'SUPABASE_SERVICE_ROLE_KEY': !!Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
-    });
-    
-    // === DIAGNOSTIC SECRETS IA ===
+    // === CONFIGURATION DES CLÉS API ===
     const mistralApiKey = Deno.env.get('MISTRAL_API_KEY');
     const groqApiKey = Deno.env.get('GROQ_API_KEY');
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
+    const claudeApiKey = Deno.env.get('CLAUDE_API_KEY');
     
-    console.log('🔍 DIAGNOSTIC: Clés IA détectées:', {
-      'MISTRAL_API_KEY': mistralApiKey ? `${mistralApiKey.substring(0, 8)}...` : 'MANQUANT',
-      'GROQ_API_KEY': groqApiKey ? `${groqApiKey.substring(0, 8)}...` : 'MANQUANT',
-      'OPENAI_API_KEY': openaiApiKey ? `${openaiApiKey.substring(0, 8)}...` : 'MANQUANT'
-    });
-    
-    console.log(`🔧 Configuration IA:`, {
+    console.log('🔧 Configuration IA:', {
       'Mistral': !!mistralApiKey,
       'Groq': !!groqApiKey,  
-      'OpenAI': !!openaiApiKey
+      'OpenAI': !!openaiApiKey,
+      'Claude': !!claudeApiKey
     });
     
     // Vérification avec message d'erreur détaillé
-    if (!mistralApiKey && !groqApiKey && !openaiApiKey) {
+    if (!mistralApiKey && !groqApiKey && !openaiApiKey && !claudeApiKey) {
       const errorMessage = `❌ AUCUNE CLÉ IA CONFIGURÉE
       
 Clés recherchées:
 - MISTRAL_API_KEY: ${mistralApiKey ? 'TROUVÉ' : 'MANQUANT'}
 - GROQ_API_KEY: ${groqApiKey ? 'TROUVÉ' : 'MANQUANT'} 
 - OPENAI_API_KEY: ${openaiApiKey ? 'TROUVÉ' : 'MANQUANT'}
-
-Variables disponibles: ${Object.keys(allEnvVars).join(', ')}
+- CLAUDE_API_KEY: ${claudeApiKey ? 'TROUVÉ' : 'MANQUANT'}
 
 SOLUTION:
 1. Vérifier que les secrets sont définis dans Supabase
-2. Redéployer la fonction: supabase functions deploy generate-ai-courrier
-3. Vérifier les logs: supabase functions logs generate-ai-courrier`;
+2. Redéployer la fonction: supabase functions deploy generate-ai-courrier`;
       
       console.error(errorMessage);
       throw new Error('Configuration manquante: aucune clé IA configurée');
     }
 
-    // Initialiser les clients IA
+    // Initialiser les clients IA avec gestion d'erreurs
     const groq = groqApiKey ? new OpenAI({
       apiKey: groqApiKey,
       baseURL: "https://api.groq.com/openai/v1",
@@ -178,165 +163,303 @@ SOLUTION:
       apiKey: openaiApiKey,
     }) : null;
 
-    // Modèles optimisés pour API gratuites (ordre de priorité)
-    const groqModels = [
-      "llama3-8b-8192",        // Plus rapide, moins de ressources
-      "mixtral-8x7b-32768",    // Bon compromis qualité/vitesse
-      "llama3-70b-8192",       // Plus lourd, en dernier recours
-    ];
+    // === MODÈLES OPTIMISÉS AVEC FALLBACK INTELLIGENT ===
+    const modelConfigs = {
+      mistral: {
+        models: ['mistral-small-latest', 'mistral-tiny'],
+        url: 'https://api.mistral.ai/v1/chat/completions',
+        headers: { 'Authorization': `Bearer ${mistralApiKey}` }
+      },
+      groq: {
+        models: ['llama-3.1-8b-instant', 'mixtral-8x7b-32768', 'llama3-8b-8192'],
+        client: groq
+      },
+      openai: {
+        models: ['gpt-4o-mini', 'gpt-3.5-turbo'],
+        client: openai
+      },
+      claude: {
+        models: ['claude-3-haiku-20240307'],
+        url: 'https://api.anthropic.com/v1/messages',
+        headers: { 
+          'Authorization': `Bearer ${claudeApiKey}`,
+          'anthropic-version': '2023-06-01'
+        }
+      }
+    };
 
-    // === FONCTION DE TEST AVEC PRIORITÉ CONFIGURABLE ===
-    async function testAIModels(preferredModel: string = 'auto') {
+    // === FONCTION DE GÉNÉRATION AVEC FALLBACK INTELLIGENT ===
+    async function generateWithAI(preferredModel: string = 'auto') {
       const messages = [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
       ];
 
-      console.log(`🔍 Testing AI models with preferred: ${preferredModel}...`);
+      console.log(`🚀 Démarrage génération avec modèle préféré: ${preferredModel}`);
       
-      // Define model order based on preference
+      // Définir l'ordre de priorité selon la préférence
       const getModelOrder = (preferred: string) => {
+        const availableModels = [];
+        if (mistralApiKey) availableModels.push('mistral');
+        if (groqApiKey) availableModels.push('groq');
+        if (openaiApiKey) availableModels.push('openai');
+        if (claudeApiKey) availableModels.push('claude');
+        
         switch (preferred) {
           case 'mistral':
-            return ['mistral', 'groq', 'openai'];
+            return mistralApiKey ? ['mistral', ...availableModels.filter(m => m !== 'mistral')] : availableModels;
           case 'groq':
-            return ['groq', 'mistral', 'openai'];
+            return groqApiKey ? ['groq', ...availableModels.filter(m => m !== 'groq')] : availableModels;
           case 'openai':
-            return ['openai', 'groq', 'mistral'];
-          default: // 'auto'
-            return ['mistral', 'groq', 'openai'];
+            return openaiApiKey ? ['openai', ...availableModels.filter(m => m !== 'openai')] : availableModels;
+          case 'claude':
+            return claudeApiKey ? ['claude', ...availableModels.filter(m => m !== 'claude')] : availableModels;
+          default: // 'auto' - ordre optimisé pour la fiabilité
+            return ['groq', 'mistral', 'openai', 'claude'].filter(m => availableModels.includes(m));
         }
       };
       
       const modelOrder = getModelOrder(preferredModel);
-      console.log(`📋 Model order: ${modelOrder.join(' → ')}`);
+      console.log(`📋 Ordre des modèles: ${modelOrder.join(' → ')}`);
       
-      // Try models in preferred order
-      for (const model of modelOrder) {
-        if (model === 'mistral') {
-          // === TRY MISTRAL AI ===
-          if (mistralApiKey) {
-            try {
-              console.log('🚀 Test Mistral AI...');
-              
-              const mistralResponse = await fetch('https://api.mistral.ai/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${mistralApiKey}`,
-                },
-                body: JSON.stringify({
-                  model: 'mistral-tiny', // Modèle gratuit le plus stable
-                  messages,
-                  max_tokens: length === 'court' ? 512 : length === 'long' ? 1024 : 768,
-                }),
-              });
-
-              if (!mistralResponse.ok) {
-                const errorData = await mistralResponse.text();
-                console.error(`❌ Mistral API error ${mistralResponse.status}:`, errorData);
-                throw new Error(`Mistral API error: ${mistralResponse.status}`);
-              }
-
-              const mistralData = await mistralResponse.json();
-              const generatedContent = mistralData.choices[0].message.content;
-              
-              if (generatedContent && generatedContent.trim()) {
-                console.log('✅ Succès avec Mistral AI');
-                return generatedContent;
-              }
-            } catch (mistralError) {
-              console.error('💥 Erreur Mistral:', mistralError.message);
+      // Fonction de retry avec backoff exponentiel
+      const retryWithBackoff = async (fn: () => Promise<any>, maxRetries: number = 3, baseDelay: number = 1000) => {
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+          try {
+            return await fn();
+          } catch (error) {
+            const errorMsg = error.response?.data?.error?.message || error.message;
+            
+            if (attempt === maxRetries) {
+              throw error;
             }
+            
+            // Délai plus long pour les erreurs de quota/rate limit
+            const isRateLimit = errorMsg.includes('rate_limit') || errorMsg.includes('quota') || errorMsg.includes('429');
+            const delay = isRateLimit ? baseDelay * Math.pow(3, attempt) : baseDelay * Math.pow(2, attempt);
+            
+            console.log(`⏳ Tentative ${attempt}/${maxRetries} échouée, retry dans ${delay}ms: ${errorMsg}`);
+            await new Promise(resolve => setTimeout(resolve, delay));
           }
+        }
+      };
 
-        } else if (model === 'groq') {
-          // === TRY GROQ ===
-          if (groq) {
-            for (let modelIndex = 0; modelIndex < groqModels.length; modelIndex++) {
-              const groqModel = groqModels[modelIndex];
-              
-              // Retry avec délais croissants pour API gratuite
-              for (let attempt = 1; attempt <= 3; attempt++) {
-                try {
-                  console.log(`🔎 Test Groq ${groqModel} (tentative ${attempt}/3)`);
+      // Tentative avec chaque modèle dans l'ordre de priorité
+      for (const modelType of modelOrder) {
+        const config = modelConfigs[modelType];
+        if (!config) continue;
 
-                  const response = await groq.chat.completions.create({
-                    model: groqModel,
+        console.log(`🔄 Test du modèle: ${modelType}`);
+
+        try {
+          if (modelType === 'mistral') {
+            // === MISTRAL AI ===
+            for (const model of config.models) {
+              try {
+                console.log(`🟢 Test Mistral: ${model}`);
+                
+                const result = await retryWithBackoff(async () => {
+                  const response = await fetch(config.url, {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      ...config.headers
+                    },
+                    body: JSON.stringify({
+                      model,
+                      messages,
+                      max_tokens: length === 'court' ? 512 : length === 'long' ? 1024 : 768,
+                      temperature: 0.7,
+                    }),
+                  });
+
+                  if (!response.ok) {
+                    const errorData = await response.text();
+                    throw new Error(`HTTP ${response.status}: ${errorData}`);
+                  }
+
+                  const data = await response.json();
+                  const content = data.choices[0].message.content;
+                  
+                  if (!content || content.trim().length < 100) {
+                    throw new Error('Contenu généré insuffisant');
+                  }
+                  
+                  return content;
+                });
+
+                console.log(`✅ Succès avec Mistral ${model}`);
+                return result;
+
+              } catch (error) {
+                console.error(`❌ Erreur Mistral ${model}:`, error.message);
+                continue;
+              }
+            }
+
+          } else if (modelType === 'groq' && config.client) {
+            // === GROQ ===
+            for (const model of config.models) {
+              try {
+                console.log(`⚡ Test Groq: ${model}`);
+                
+                const result = await retryWithBackoff(async () => {
+                  const response = await config.client.chat.completions.create({
+                    model,
                     messages,
                     max_completion_tokens: length === 'court' ? 512 : length === 'long' ? 1024 : 768,
                     temperature: 0.7,
                   });
 
-                  console.log(`✅ Succès avec Groq ${groqModel} après ${attempt} tentative(s)`);
-                  return response.choices[0].message.content;
-
-                } catch (err) {
-                  const errorMsg = err.response?.data?.error?.message || err.message;
-                  console.error(`❌ Groq ${groqModel} tentative ${attempt}:`, errorMsg);
-                  
-                  // Si rate limit ou quota, attendre plus longtemps
-                  if (errorMsg.includes('rate_limit') || errorMsg.includes('quota')) {
-                    const delay = attempt * 2000; // 2s, 4s, 6s
-                    console.log(`⏳ Rate limit détecté, attente ${delay}ms...`);
-                    await new Promise(resolve => setTimeout(resolve, delay));
-                  } else if (attempt === 3) {
-                    // Dernière tentative échouée, passer au modèle suivant
-                    break;
+                  const content = response.choices[0].message.content;
+                  if (!content || content.trim().length < 100) {
+                    throw new Error('Contenu généré insuffisant');
                   }
-                }
-              }
-            }
-          }
-
-        } else if (model === 'openai') {
-          // === TRY OPENAI ===
-          if (openai) {
-            for (let attempt = 1; attempt <= 2; attempt++) {
-              try {
-                console.log(`⚠️ Test OpenAI (tentative ${attempt}/2)...`);
-                const openaiResp = await openai.chat.completions.create({
-                  model: "gpt-4o-mini",
-                  messages,
-                  max_tokens: length === 'court' ? 512 : length === 'long' ? 1024 : 768,
-                  temperature: 0.7,
+                  
+                  return content;
                 });
-                console.log("✅ Succès avec OpenAI");
-                return openaiResp.choices[0].message.content;
 
-              } catch (openaiErr) {
-                const errorMsg = openaiErr.response?.data?.error?.message || openaiErr.message;
-                console.error(`💥 OpenAI tentative ${attempt}:`, errorMsg);
+                console.log(`✅ Succès avec Groq ${model}`);
+                return result;
+
+              } catch (error) {
+                console.error(`❌ Erreur Groq ${model}:`, error.message);
+                continue;
+              }
+            }
+
+          } else if (modelType === 'openai' && config.client) {
+            // === OPENAI ===
+            for (const model of config.models) {
+              try {
+                console.log(`🧠 Test OpenAI: ${model}`);
                 
-                if (attempt === 1 && (errorMsg.includes('rate_limit') || errorMsg.includes('quota'))) {
-                  console.log("⏳ Attente 3s avant retry OpenAI...");
-                  await new Promise(resolve => setTimeout(resolve, 3000));
-                } else if (attempt === 2) {
-                  throw new Error(`Échec final: ${errorMsg}`);
-                }
+                const result = await retryWithBackoff(async () => {
+                  const response = await config.client.chat.completions.create({
+                    model,
+                    messages,
+                    max_tokens: length === 'court' ? 512 : length === 'long' ? 1024 : 768,
+                    temperature: 0.7,
+                  });
+
+                  const content = response.choices[0].message.content;
+                  if (!content || content.trim().length < 100) {
+                    throw new Error('Contenu généré insuffisant');
+                  }
+                  
+                  return content;
+                });
+
+                console.log(`✅ Succès avec OpenAI ${model}`);
+                return result;
+
+              } catch (error) {
+                console.error(`❌ Erreur OpenAI ${model}:`, error.message);
+                continue;
+              }
+            }
+
+          } else if (modelType === 'claude') {
+            // === CLAUDE ===
+            for (const model of config.models) {
+              try {
+                console.log(`📝 Test Claude: ${model}`);
+                
+                const result = await retryWithBackoff(async () => {
+                  const response = await fetch(config.url, {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      ...config.headers
+                    },
+                    body: JSON.stringify({
+                      model,
+                      max_tokens: length === 'court' ? 512 : length === 'long' ? 1024 : 768,
+                      messages: [{ role: 'user', content: `${systemPrompt}\n\n${userPrompt}` }]
+                    }),
+                  });
+
+                  if (!response.ok) {
+                    const errorData = await response.text();
+                    throw new Error(`HTTP ${response.status}: ${errorData}`);
+                  }
+
+                  const data = await response.json();
+                  const content = data.content[0].text;
+                  
+                  if (!content || content.trim().length < 100) {
+                    throw new Error('Contenu généré insuffisant');
+                  }
+                  
+                  return content;
+                });
+
+                console.log(`✅ Succès avec Claude ${model}`);
+                return result;
+
+              } catch (error) {
+                console.error(`❌ Erreur Claude ${model}:`, error.message);
+                continue;
               }
             }
           }
+
+        } catch (error) {
+          console.error(`💥 Échec complet du service ${modelType}:`, error.message);
+          continue;
         }
       }
 
-      throw new Error("Aucun service IA disponible. Vérifiez vos quotas API ou souscrivez un plan payant.");
+      // === FALLBACK DE SECOURS: TEMPLATE BASIQUE ===
+      console.log('🚨 Fallback: génération de template basique');
+      return generateBasicTemplate(context, typeCourrier, tone, length);
     }
 
-    // === TEST DE CONNECTIVITÉ RÉSEAU ===
-    try {
-      console.log('🌐 Test de connectivité réseau...');
-      const testResponse = await fetch('https://httpbin.org/get', { 
-        method: 'GET',
-        signal: AbortSignal.timeout(5000)
-      });
-      console.log('✅ Connectivité réseau OK:', testResponse.status);
-    } catch (networkError) {
-      console.error('⚠️ Problème de connectivité:', networkError.message);
+    // === TEMPLATE DE SECOURS ===
+    function generateBasicTemplate(context: any, type: string, tone: string, length: string): string {
+      const templates = {
+        'reclamation_interne': `Madame, Monsieur,
+
+Je vous écris concernant le refus de prise en charge de mon sinistre ${context.typeSinistre} survenu le ${context.dateSinistre}, pour un montant de ${context.montantRefuse}€.
+
+Votre refus du ${context.refusDate} ne me paraît pas justifié au regard de mon contrat d'assurance n°${context.policeNumber}.
+
+${tone === 'ferme' ? 'Je conteste formellement cette décision et' : 'Je souhaiterais que vous reconsidériez cette décision et que vous'} procédiez à un réexamen de mon dossier.
+
+Je reste à votre disposition pour tout complément d'information.
+
+Cordialement,
+${context.client}`,
+
+        'mediation': `Madame, Monsieur le Médiateur,
+
+Je sollicite votre intervention dans le cadre d'un litige avec ${context.compagnieAssurance} concernant un sinistre ${context.typeSinistre}.
+
+Mon assureur a refusé la prise en charge d'un sinistre de ${context.montantRefuse}€ survenu le ${context.dateSinistre}. 
+
+Je considère ce refus injustifié et souhaiterais que vous examiniez ce dossier.
+
+Cordialement,
+${context.client}`,
+
+        'mise_en_demeure': `MISE EN DEMEURE
+
+Madame, Monsieur,
+
+Par la présente, je vous mets en demeure de procéder au règlement de mon sinistre ${context.typeSinistre} d'un montant de ${context.montantRefuse}€.
+
+Votre refus du ${context.refusDate} n'est pas conforme aux obligations contractuelles.
+
+Vous disposez d'un délai de 30 jours pour régulariser la situation, faute de quoi je me verrai contraint d'engager des poursuites.
+
+${context.client}`
+      };
+
+      return templates[type] || templates['reclamation_interne'];
     }
 
-    // Générer le contenu avec le système de fallback automatique
-    const generatedContent = await testAIModels(preferredModel);
+    // Générer le contenu avec le système de fallback intelligent
+    const generatedContent = await generateWithAI(preferredModel);
 
     return new Response(JSON.stringify({ 
       success: true,
