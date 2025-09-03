@@ -63,7 +63,7 @@ export const GenerateCourrierDialog: React.FC<GenerateCourrierDialogProps> = ({
   // AI-specific state
   const [aiTone, setAiTone] = useState<'ferme' | 'diplomatique'>('ferme');
   const [aiLength, setAiLength] = useState<'court' | 'moyen' | 'long'>('moyen');
-  const [preferredModel, setPreferredModel] = useState<'auto' | 'mistral' | 'groq' | 'openai' | 'claude'>('auto');
+  const [preferredModel, setPreferredModel] = useState<'auto' | 'mistral' | 'groq' | 'openai'>('auto');
 
   const { generateCourrier, isGenerating } = useCourrierGenerator();
   const { generateAICourrier, isGenerating: isAIGenerating } = useAICourrierGenerator();
@@ -497,7 +497,7 @@ export const GenerateCourrierDialog: React.FC<GenerateCourrierDialogProps> = ({
                     {/* Sélecteur de modèle d'IA */}
                     <div className="space-y-2">
                       <Label className="text-sm font-medium">Modèle d'IA préféré</Label>
-                      <Select value={preferredModel} onValueChange={(value) => setPreferredModel(value as 'auto' | 'mistral' | 'groq' | 'openai' | 'claude')}>
+                      <Select value={preferredModel} onValueChange={(value) => setPreferredModel(value as 'auto' | 'mistral' | 'groq' | 'openai')}>
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
@@ -506,7 +506,6 @@ export const GenerateCourrierDialog: React.FC<GenerateCourrierDialogProps> = ({
                           <SelectItem value="mistral">🟢 Mistral AI (Rapide)</SelectItem>
                           <SelectItem value="groq">⚡ Groq (Ultra-rapide)</SelectItem>
                           <SelectItem value="openai">🧠 OpenAI (Premium)</SelectItem>
-                          <SelectItem value="claude">📝 Claude (Rédaction)</SelectItem>
                         </SelectContent>
                       </Select>
                       <p className="text-xs text-muted-foreground">

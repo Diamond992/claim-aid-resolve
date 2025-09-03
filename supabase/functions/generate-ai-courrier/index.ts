@@ -3,7 +3,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.50.2";
 import OpenAI from "https://deno.land/x/openai@v4.24.0/mod.ts";
 
-// Force redeploy timestamp: 2025-01-03T13:00:00Z
+// Force redeploy timestamp: 2025-01-03T13:10:00Z
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -19,6 +19,49 @@ serve(async (req) => {
     const { dossierId, typeCourrier, tone = 'ferme', length = 'moyen', preferredModel = 'auto' } = await req.json();
     
     console.log('Generate AI courrier request:', { dossierId, typeCourrier, tone, length, preferredModel });
+
+    // === VALIDATIONS ===
+    
+    // 1. Validation Supabase config
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
+    
+    if (!supabaseUrl || !supabaseAnonKey) {
+      console.error('Configuration Supabase manquante:', { url: !!supabaseUrl, anonKey: !!supabaseAnonKey });
+      return new Response(JSON.stringify({ 
+        success: false,
+        error: 'Configuration Supabase manquante (URL/ANON)' 
+      }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // 2. Validation typeCourrier
+    const validTypesCourrier = ['reclamation_interne', 'mediation', 'mise_en_demeure'];
+    if (!typeCourrier || !validTypesCourrier.includes(typeCourrier)) {
+      console.error('typeCourrier invalide:', typeCourrier);
+      return new Response(JSON.stringify({ 
+        success: false,
+        error: 'typeCourrier invalide' 
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // 3. Validation preferredModel avec liste blanche
+    const validModels = ['mistral', 'groq', 'openai', 'auto'];
+    if (!preferredModel || !validModels.includes(preferredModel)) {
+      console.error('preferredModel invalide:', preferredModel);
+      return new Response(JSON.stringify({ 
+        success: false,
+        error: `Modèle invalide. Modèles supportés: ${validModels.join(', ')}` 
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
     
     // Vérifier l'en-tête d'autorisation
     const authHeader = req.headers.get('Authorization');
@@ -30,8 +73,8 @@ serve(async (req) => {
     console.log('Authorization header present:', !!authHeader);
     
     const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      supabaseUrl,
+      supabaseAnonKey,
       { global: { headers: { Authorization: authHeader } } }
     );
 
@@ -128,31 +171,61 @@ Rédigez le courrier complet.`;
     const mistralApiKey = Deno.env.get('MISTRAL_API_KEY');
     const groqApiKey = Deno.env.get('GROQ_API_KEY');
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
-    const claudeApiKey = Deno.env.get('CLAUDE_API_KEY');
     
     console.log('🔧 Configuration IA:', {
       'Mistral': !!mistralApiKey,
       'Groq': !!groqApiKey,  
-      'OpenAI': !!openaiApiKey,
-      'Claude': !!claudeApiKey
+      'OpenAI': !!openaiApiKey
     });
+
+    // 4. Validation préalable: vérifier que le modèle demandé a sa clé configurée
+    if (preferredModel !== 'auto') {
+      let hasRequiredKey = false;
+      switch (preferredModel) {
+        case 'mistral':
+          hasRequiredKey = !!mistralApiKey;
+          break;
+        case 'groq':
+          hasRequiredKey = !!groqApiKey;
+          break;
+        case 'openai':
+          hasRequiredKey = !!openaiApiKey;
+          break;
+      }
+      
+      if (!hasRequiredKey) {
+        console.error(`Clé API manquante pour le modèle ${preferredModel}`);
+        return new Response(JSON.stringify({ 
+          success: false,
+          error: `Clé API manquante pour le modèle ${preferredModel}` 
+        }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
     
-    // Vérification avec message d'erreur détaillé
-    if (!mistralApiKey && !groqApiKey && !openaiApiKey && !claudeApiKey) {
+    // Vérification générale: au moins une clé doit être configurée
+    if (!mistralApiKey && !groqApiKey && !openaiApiKey) {
       const errorMessage = `❌ AUCUNE CLÉ IA CONFIGURÉE
       
 Clés recherchées:
 - MISTRAL_API_KEY: ${mistralApiKey ? 'TROUVÉ' : 'MANQUANT'}
 - GROQ_API_KEY: ${groqApiKey ? 'TROUVÉ' : 'MANQUANT'} 
 - OPENAI_API_KEY: ${openaiApiKey ? 'TROUVÉ' : 'MANQUANT'}
-- CLAUDE_API_KEY: ${claudeApiKey ? 'TROUVÉ' : 'MANQUANT'}
 
 SOLUTION:
 1. Vérifier que les secrets sont définis dans Supabase
 2. Redéployer la fonction: supabase functions deploy generate-ai-courrier`;
       
       console.error(errorMessage);
-      throw new Error('Configuration manquante: aucune clé IA configurée');
+      return new Response(JSON.stringify({ 
+        success: false,
+        error: 'Configuration manquante: aucune clé IA configurée' 
+      }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     // Initialiser les clients IA avec gestion d'erreurs
@@ -177,16 +250,8 @@ SOLUTION:
         client: groq
       },
       openai: {
-        models: ['gpt-4o-mini', 'gpt-3.5-turbo'],
+        models: ['gpt-4o-mini'],
         client: openai
-      },
-      claude: {
-        models: ['claude-3-haiku-20240307'],
-        url: 'https://api.anthropic.com/v1/messages',
-        headers: { 
-          'Authorization': `Bearer ${claudeApiKey}`,
-          'anthropic-version': '2023-06-01'
-        }
       }
     };
 
@@ -205,7 +270,6 @@ SOLUTION:
         if (mistralApiKey) availableModels.push('mistral');
         if (groqApiKey) availableModels.push('groq');
         if (openaiApiKey) availableModels.push('openai');
-        if (claudeApiKey) availableModels.push('claude');
         
         switch (preferred) {
           case 'mistral':
@@ -214,10 +278,8 @@ SOLUTION:
             return groqApiKey ? ['groq', ...availableModels.filter(m => m !== 'groq')] : availableModels;
           case 'openai':
             return openaiApiKey ? ['openai', ...availableModels.filter(m => m !== 'openai')] : availableModels;
-          case 'claude':
-            return claudeApiKey ? ['claude', ...availableModels.filter(m => m !== 'claude')] : availableModels;
           default: // 'auto' - ordre optimisé pour la fiabilité
-            return ['groq', 'mistral', 'openai', 'claude'].filter(m => availableModels.includes(m));
+            return ['groq', 'mistral', 'openai'].filter(m => availableModels.includes(m));
         }
       };
       
@@ -309,7 +371,7 @@ SOLUTION:
                   const response = await config.client.chat.completions.create({
                     model,
                     messages,
-                    max_completion_tokens: length === 'court' ? 512 : length === 'long' ? 1024 : 768,
+                    max_tokens: length === 'court' ? 512 : length === 'long' ? 1024 : 768,
                     temperature: 0.7,
                   });
 
@@ -361,50 +423,6 @@ SOLUTION:
               }
             }
 
-          } else if (modelType === 'claude') {
-            // === CLAUDE ===
-            for (const model of config.models) {
-              try {
-                console.log(`📝 Test Claude: ${model}`);
-                
-                const result = await retryWithBackoff(async () => {
-                  const response = await fetch(config.url, {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                      ...config.headers
-                    },
-                    body: JSON.stringify({
-                      model,
-                      max_tokens: length === 'court' ? 512 : length === 'long' ? 1024 : 768,
-                      messages: [{ role: 'user', content: `${systemPrompt}\n\n${userPrompt}` }]
-                    }),
-                  });
-
-                  if (!response.ok) {
-                    const errorData = await response.text();
-                    throw new Error(`HTTP ${response.status}: ${errorData}`);
-                  }
-
-                  const data = await response.json();
-                  const content = data.content[0].text;
-                  
-                  if (!content || content.trim().length < 100) {
-                    throw new Error('Contenu généré insuffisant');
-                  }
-                  
-                  return content;
-                });
-
-                console.log(`✅ Succès avec Claude ${model}`);
-                return result;
-
-              } catch (error) {
-                console.error(`❌ Erreur Claude ${model}:`, error.message);
-                continue;
-              }
-            }
-          }
 
         } catch (error) {
           console.error(`💥 Échec complet du service ${modelType}:`, error.message);
