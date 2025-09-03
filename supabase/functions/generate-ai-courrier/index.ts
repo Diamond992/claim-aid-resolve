@@ -423,6 +423,8 @@ SOLUTION:
               }
             }
 
+            }
+          }
 
         } catch (error) {
           console.error(`💥 Échec complet du service ${modelType}:`, error.message);
