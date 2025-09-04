@@ -218,6 +218,27 @@ export const useAdminMutations = () => {
     },
   });
 
+  // Delete courrier mutation (ajouté pour corriger le problème)
+  const deleteCourrierMutation = useMutation({
+    mutationFn: async (courrierId: string) => {
+      const { error } = await supabase
+        .from('courriers_projets')
+        .delete()
+        .eq('id', courrierId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-courriers'] });
+      queryClient.invalidateQueries({ queryKey: ['dossier-detail'] });
+      toast.success("Courrier supprimé avec succès");
+    },
+    onError: (error) => {
+      console.error('Error deleting courrier:', error);
+      toast.error("Erreur lors de la suppression du courrier");
+    },
+  });
+
   return {
     updateCourrierMutation,
     updateEcheanceStatusMutation,
@@ -227,5 +248,6 @@ export const useAdminMutations = () => {
     testWebhookMutation,
     updateDossierMutation,
     deleteDocumentMutation,
+    deleteCourrierMutation,
   };
 };

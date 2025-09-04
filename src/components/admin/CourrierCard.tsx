@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Bot, Eye, CheckCircle, XCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { DeleteDossierDialog } from "@/components/admin/DeleteDossierDialog";
+import { useAdminMutations } from "@/hooks/useAdminMutations";
 
 interface CourierData {
   id: string;
@@ -37,10 +38,12 @@ interface CourrierCardProps {
   courrier: CourierData;
   onValidate: (id: string) => void;
   onReject: (id: string) => void;
+  onDelete?: (id: string) => void;
 }
 
-const CourrierCard = ({ courrier, onValidate, onReject }: CourrierCardProps) => {
+const CourrierCard = ({ courrier, onValidate, onReject, onDelete }: CourrierCardProps) => {
   const navigate = useNavigate();
+  const { deleteCourrierMutation } = useAdminMutations();
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -157,6 +160,17 @@ const CourrierCard = ({ courrier, onValidate, onReject }: CourrierCardProps) => 
                 <XCircle className="h-4 w-4 mr-2" />
                 Rejeter
               </Button>
+              {onDelete && (
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className="border-red-600 text-red-600 hover:bg-red-100"
+                  onClick={() => onDelete(courrier.id)}
+                  disabled={deleteCourrierMutation.isPending}
+                >
+                  {deleteCourrierMutation.isPending ? "Suppression..." : "Supprimer"}
+                </Button>
+              )}
             </>
           )}
           

@@ -33,6 +33,7 @@ interface AdminTabsContentProps {
   isLoading: boolean;
   onCourrierValidate: (id: string) => void;
   onCourrierReject: (id: string) => void;
+  onCourrierDelete?: (id: string) => void;
   onEcheanceStatusUpdate: (id: string, status: 'actif' | 'traite' | 'expire') => void;
   onPaymentStatusUpdate: (id: string, status: 'pending' | 'succeeded' | 'failed' | 'canceled' | 'refunded') => void;
   onCreateEcheance: (echeanceData: {
@@ -56,6 +57,7 @@ export const AdminTabsContent = ({
   isLoading,
   onCourrierValidate,
   onCourrierReject,
+  onCourrierDelete,
   onEcheanceStatusUpdate,
   onPaymentStatusUpdate,
   onCreateEcheance,
@@ -173,6 +175,7 @@ export const AdminTabsContent = ({
           isLoading={isLoading}
           onValidate={onCourrierValidate}
           onReject={onCourrierReject}
+          onDelete={onCourrierDelete}
         />
       </TabsContent>
       

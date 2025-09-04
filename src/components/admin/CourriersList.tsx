@@ -35,9 +35,10 @@ interface CourriersListProps {
   isLoading: boolean;
   onValidate: (id: string) => void;
   onReject: (id: string) => void;
+  onDelete?: (id: string) => void;
 }
 
-const CourriersList = ({ courriers, isLoading, onValidate, onReject }: CourriersListProps) => {
+const CourriersList = ({ courriers, isLoading, onValidate, onReject, onDelete }: CourriersListProps) => {
   if (isLoading) {
     return (
       <Card className="text-center py-12">
@@ -76,6 +77,7 @@ const CourriersList = ({ courriers, isLoading, onValidate, onReject }: Courriers
           courrier={courrier}
           onValidate={onValidate}
           onReject={onReject}
+          onDelete={onDelete}
         />
       ))}
     </div>

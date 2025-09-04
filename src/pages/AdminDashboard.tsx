@@ -23,6 +23,7 @@ const AdminDashboard = () => {
     deleteDossierMutation,
     updateDossierMutation,
     deleteDocumentMutation,
+    deleteCourrierMutation,
   } = useAdminMutations();
 
   // Monitor auth state and redirect if user becomes null
@@ -83,6 +84,12 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleCourrierDelete = (id: string) => {
+    if (confirm('Êtes-vous sûr de vouloir supprimer ce courrier ? Cette action est irréversible.')) {
+      deleteCourrierMutation.mutate(id);
+    }
+  };
+
   const handleLogout = async () => {
     await signOut();
     navigate('/login');
@@ -117,6 +124,7 @@ const AdminDashboard = () => {
             isLoading={isLoading}
             onCourrierValidate={(id) => handleCourrierStatusUpdate(id, 'valide_pret_envoi')}
             onCourrierReject={(id) => handleCourrierStatusUpdate(id, 'rejete')}
+            onCourrierDelete={(id) => handleCourrierDelete(id)}
             onEcheanceStatusUpdate={handleEcheanceStatusUpdate}
             onPaymentStatusUpdate={handlePaymentStatusUpdate}
             onCreateEcheance={handleCreateEcheance}
