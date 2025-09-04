@@ -3,7 +3,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.50.2";
 import OpenAI from "https://deno.land/x/openai@v4.24.0/mod.ts";
 
-// Force redeploy timestamp: 2025-01-03T13:20:00Z - Updated GROQ API key
+// Force redeploy timestamp: 2025-01-03T13:25:00Z - Fixed fallback system
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -172,38 +172,23 @@ Rédigez le courrier complet.`;
     const groqApiKey = Deno.env.get('GROQ_API_KEY');
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
     
-    console.log('🔧 Configuration IA:', {
+    // Diagnostic détaillé des clés disponibles
+    const availableKeys = {
       'Mistral': !!mistralApiKey,
       'Groq': !!groqApiKey,  
       'OpenAI': !!openaiApiKey
-    });
-
-    // 4. Validation préalable: vérifier que le modèle demandé a sa clé configurée
-    if (preferredModel !== 'auto') {
-      let hasRequiredKey = false;
-      switch (preferredModel) {
-        case 'mistral':
-          hasRequiredKey = !!mistralApiKey;
-          break;
-        case 'groq':
-          hasRequiredKey = !!groqApiKey;
-          break;
-        case 'openai':
-          hasRequiredKey = !!openaiApiKey;
-          break;
-      }
-      
-      if (!hasRequiredKey) {
-        console.error(`Clé API manquante pour le modèle ${preferredModel}`);
-        return new Response(JSON.stringify({ 
-          success: false,
-          error: `Clé API manquante pour le modèle ${preferredModel}` 
-        }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-    }
+    };
+    const availableModels = Object.entries(availableKeys)
+      .filter(([_, hasKey]) => hasKey)
+      .map(([model]) => model.toLowerCase());
+    
+    console.log('🔧 Configuration IA détectée:', availableKeys);
+    console.log('📋 Modèles disponibles:', availableModels);
+    console.log(`🎯 Modèle demandé: ${preferredModel}`);
+    
+    // SUPPRESSION de la validation précoce stricte pour permettre le fallback
+    // L'ancien code bloquait le fallback intelligent si le modèle préféré n'avait pas de clé
+    // Maintenant on laisse le système de fallback gérer les échecs intelligemment
     
     // Vérification générale: au moins une clé doit être configurée
     if (!mistralApiKey && !groqApiKey && !openaiApiKey) {
@@ -306,55 +291,82 @@ ${context.client}`
       ];
 
       console.log(`🚀 Démarrage génération avec modèle préféré: ${preferredModel}`);
+      console.log(`🔍 Modèles disponibles pour fallback: ${availableModels.join(', ')}`);
       
-      // Définir l'ordre de priorité selon la préférence
+      // Définir l'ordre de priorité selon la préférence avec fallback intelligent
       const getModelOrder = (preferred: string) => {
-        const availableModels = [];
-        if (mistralApiKey) availableModels.push('mistral');
-        if (groqApiKey) availableModels.push('groq');
-        if (openaiApiKey) availableModels.push('openai');
+        const allAvailable = [];
+        if (mistralApiKey) allAvailable.push('mistral');
+        if (groqApiKey) allAvailable.push('groq');
+        if (openaiApiKey) allAvailable.push('openai');
+        
+        // Si aucune clé n'est disponible, retourner un tableau vide
+        if (allAvailable.length === 0) {
+          console.warn('⚠️ Aucune clé API disponible, fallback vers template');
+          return [];
+        }
         
         switch (preferred) {
           case 'mistral':
-            return mistralApiKey ? ['mistral', ...availableModels.filter(m => m !== 'mistral')] : availableModels;
+            return mistralApiKey ? ['mistral', ...allAvailable.filter(m => m !== 'mistral')] : allAvailable;
           case 'groq':
-            return groqApiKey ? ['groq', ...availableModels.filter(m => m !== 'groq')] : availableModels;
+            return groqApiKey ? ['groq', ...allAvailable.filter(m => m !== 'groq')] : allAvailable;
           case 'openai':
-            return openaiApiKey ? ['openai', ...availableModels.filter(m => m !== 'openai')] : availableModels;
+            return openaiApiKey ? ['openai', ...allAvailable.filter(m => m !== 'openai')] : allAvailable;
           default: // 'auto' - ordre optimisé pour la fiabilité
-            return ['groq', 'mistral', 'openai'].filter(m => availableModels.includes(m));
+            return ['groq', 'mistral', 'openai'].filter(m => allAvailable.includes(m));
         }
       };
       
       const modelOrder = getModelOrder(preferredModel);
-      console.log(`📋 Ordre des modèles: ${modelOrder.join(' → ')}`);
+      console.log(`📋 Ordre de test des modèles: ${modelOrder.length > 0 ? modelOrder.join(' → ') : 'Aucun (fallback direct)'}`);
       
-      // Fonction de retry avec backoff exponentiel
-      const retryWithBackoff = async (fn: () => Promise<any>, maxRetries: number = 3, baseDelay: number = 1000) => {
+      // Fonction de retry optimisée avec gestion des erreurs 401 (clé invalide)
+      const retryWithBackoff = async (fn: () => Promise<any>, maxRetries: number = 2, baseDelay: number = 1000) => {
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
           try {
             return await fn();
           } catch (error) {
             const errorMsg = error.response?.data?.error?.message || error.message;
+            const statusCode = error.response?.status || error.status || 0;
+            
+            // Erreurs 401 (clé invalide) et 403 (non autorisé) = pas de retry, passer au modèle suivant
+            if (statusCode === 401 || statusCode === 403 || errorMsg.includes('Invalid API Key') || errorMsg.includes('Unauthorized')) {
+              console.log(`❌ Erreur d'authentification (${statusCode}): ${errorMsg} - Passage au modèle suivant`);
+              throw error; // Ne pas retry, passer au modèle suivant
+            }
             
             if (attempt === maxRetries) {
               throw error;
             }
             
-            // Délai plus long pour les erreurs de quota/rate limit
-            const isRateLimit = errorMsg.includes('rate_limit') || errorMsg.includes('quota') || errorMsg.includes('429');
-            const delay = isRateLimit ? baseDelay * Math.pow(3, attempt) : baseDelay * Math.pow(2, attempt);
+            // Retry seulement pour les erreurs temporaires (rate limit, timeout, etc.)
+            const isTemporaryError = errorMsg.includes('rate_limit') || errorMsg.includes('quota') || statusCode === 429 || statusCode >= 500;
+            if (!isTemporaryError) {
+              console.log(`❌ Erreur non temporaire: ${errorMsg} - Passage au modèle suivant`);
+              throw error;
+            }
             
+            const delay = baseDelay * Math.pow(2, attempt);
             console.log(`⏳ Tentative ${attempt}/${maxRetries} échouée, retry dans ${delay}ms: ${errorMsg}`);
             await new Promise(resolve => setTimeout(resolve, delay));
           }
         }
       };
 
+      // Si aucun modèle n'est disponible, aller directement au fallback
+      if (modelOrder.length === 0) {
+        console.log('🚨 Aucun modèle IA disponible, génération de template basique');
+        return generateBasicTemplate(context, typeCourrier, tone, length);
+      }
+
       // Tentative avec chaque modèle dans l'ordre de priorité
       for (const modelType of modelOrder) {
         const config = modelConfigs[modelType];
-        if (!config) continue;
+        if (!config) {
+          console.log(`⚠️ Configuration manquante pour ${modelType}, passage au suivant`);
+          continue;
+        }
 
         console.log(`🔄 Test du modèle: ${modelType}`);
 
@@ -474,16 +486,25 @@ ${context.client}`
       }
 
       // === FALLBACK DE SECOURS: TEMPLATE BASIQUE ===
-      console.log('🚨 Fallback: génération de template basique');
+      console.log('🚨 Tous les modèles IA ont échoué, génération de template basique');
+      console.log(`📊 Résumé des tentatives: ${modelOrder.length} modèles testés`);
       return generateBasicTemplate(context, typeCourrier, tone, length);
     }
 
     // Générer le contenu avec le système de fallback intelligent
     const generatedContent = await generateWithAI(preferredModel);
+    
+    // Déterminer quel type de génération a été utilisé pour informer l'utilisateur
+    const generationMethod = generatedContent.includes('Madame, Monsieur,') && generatedContent.length < 500 
+      ? 'template_basique' 
+      : 'ia_generee';
 
     return new Response(JSON.stringify({ 
       success: true,
       contenu_genere: generatedContent,
+      generation_method: generationMethod,
+      available_models: availableModels,
+      requested_model: preferredModel,
       context: context
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
