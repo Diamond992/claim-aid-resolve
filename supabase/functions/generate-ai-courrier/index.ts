@@ -3,7 +3,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.50.2";
 import OpenAI from "https://deno.land/x/openai@v4.24.0/mod.ts";
 
-// Force redeploy timestamp: 2025-01-03T13:15:00Z
+// Force redeploy timestamp: 2025-01-03T13:20:00Z - Updated GROQ API key
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
