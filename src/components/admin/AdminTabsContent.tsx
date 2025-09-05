@@ -204,6 +204,7 @@ export const AdminTabsContent = ({
           onEditDossier={handleEditDossier}
           onDeleteDossier={onDeleteDossier}
           onGenerateCourrier={handleGenerateCourrier}
+          onDeleteDocument={onDeleteDocument}
         />
       </TabsContent>
 
