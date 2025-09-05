@@ -3,7 +3,8 @@ import { useDossierDetail } from "@/hooks/useDossierDetail";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, FileText, Mail, Calendar, AlertTriangle, Upload, Edit, MessageCircle, Eye, Download, Plus } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { ArrowLeft, FileText, Mail, Calendar, AlertTriangle, Upload, Edit, MessageCircle, Eye, Download, Plus, Trash2 } from "lucide-react";
 import { DocumentUpload } from "@/components/DocumentUpload";
 import { EditDossier } from "@/components/EditDossier";
 import AdminEditDossier from "@/components/admin/AdminEditDossier";
@@ -14,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { GenerateCourrierDialog } from "@/components/admin/GenerateCourrierDialog";
 import { useCourrierGenerator } from "@/hooks/useCourrierGenerator";
 import { useUserRole } from "@/hooks/useUserRole";
+import { useAuth } from "@/contexts/AuthContext";
 import { useState } from "react";
 
 const DossierDetail = () => {
@@ -25,6 +27,7 @@ const DossierDetail = () => {
   const [showAdminEditDialog, setShowAdminEditDialog] = useState(false);
   const { generateCourrier } = useCourrierGenerator();
   const { isAdmin } = useUserRole();
+  const { user } = useAuth();
 
   if (isLoading) {
     return (
@@ -238,6 +241,45 @@ const DossierDetail = () => {
     }
   };
 
+  const handleDeleteDocument = async (doc: any) => {
+    try {
+      // Delete from database
+      const { error: dbError } = await supabase
+        .from('documents')
+        .delete()
+        .eq('id', doc.id);
+
+      if (dbError) throw dbError;
+
+      // Delete from storage if possible
+      const filePath = getFilePathFromUrl(doc?.url_stockage);
+      if (filePath) {
+        const { error: storageError } = await supabase.storage
+          .from('documents')
+          .remove([filePath]);
+        
+        if (storageError) {
+          console.warn('Storage deletion failed:', storageError);
+        }
+      }
+
+      toast({ 
+        title: 'Succès', 
+        description: 'Document supprimé avec succès' 
+      });
+      
+      // Refresh data to update UI
+      refetch();
+    } catch (err) {
+      console.error('Erreur suppression document:', err);
+      toast({ 
+        title: 'Erreur', 
+        description: "Erreur lors de la suppression du document", 
+        variant: 'destructive' 
+      });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
       <div className="container mx-auto px-4 py-8">
@@ -366,6 +408,29 @@ const DossierDetail = () => {
                           <Button variant="outline" size="sm" onClick={() => handleDownloadDocument(doc)} title="Télécharger le document">
                             <Download className="h-4 w-4 mr-1" /> Télécharger
                           </Button>
+                          {(isAdmin || doc.uploaded_by === user?.id) && (
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="outline" size="sm" title="Supprimer le document">
+                                  <Trash2 className="h-4 w-4 mr-1" /> Supprimer
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Confirmer la suppression</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Êtes-vous sûr de vouloir supprimer le document "{doc.nom_fichier}" ? Cette action est irréversible.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Annuler</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => handleDeleteDocument(doc)}>
+                                    Supprimer
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          )}
                         </div>
                       </div>
                     ))}
